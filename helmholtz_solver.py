@@ -109,7 +109,7 @@ class HelmholtzDirectSolver:
 
         t0 = time.perf_counter()
 
-        if self.solve_backend == "gpu0":
+        if self.solve_backend == "gpu":
             print("▶ 阶段 2/2: 调用 CuPy cuSolver 执行 GPU 显存复数直接分解...")
             self.A_cached_csr_gpu = csp.csr_matrix(A_csr)
             rhs_gpu = cp.array(rhs, dtype=cp.complex128)
@@ -142,7 +142,10 @@ class HelmholtzDirectSolver:
         print(f"✓ 阶段 2/2: 直接求逆完成! 耗时: {t_solve:.2f} 秒")
         print("=" * 65)
 
-        return u_vec.reshape((self.cfg.domain.nx, self.cfg.domain.ny, self.cfg.domain.nz))
+        return u_vec.reshape(
+            (self.cfg.domain.nx, self.cfg.domain.ny, self.cfg.domain.nz),
+            order="F",
+        )
 
     def solve_adjoint(self, adjoint_rhs: np.ndarray) -> np.ndarray:
         """伴随状态快速直接回代接口"""
@@ -161,7 +164,10 @@ class HelmholtzDirectSolver:
             N = self.total_dofs
             v_vec = v_big[:N] + 1j * v_big[N:]
 
-        return v_vec.reshape((self.cfg.domain.nx, self.cfg.domain.ny, self.cfg.domain.nz))
+        return v_vec.reshape(
+            (self.cfg.domain.nx, self.cfg.domain.ny, self.cfg.domain.nz),
+            order="F",
+        )
 
     def to_warp_array(self, np_field: np.ndarray) -> wp.array:
         return wp.from_numpy(np_field, dtype=wp.complex64, device=self.warp_engine.device)
