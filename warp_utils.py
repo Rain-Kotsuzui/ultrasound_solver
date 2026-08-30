@@ -82,8 +82,8 @@ def assemble_helmholtz_kernel(
     emitter_idx = int(0)
     
     if k == 0:
-        center_x = float(nx) * dx * 0.5
-        center_y = float(ny) * dx * 0.5
+        center_x = float(nx - 1) * dx * 0.5
+        center_y = float(ny - 1) * dx * 0.5
         half_span = float(array_n - 1) * trans_pitch * 0.5
         start_x = center_x - half_span
         start_y = center_y - half_span
@@ -293,6 +293,9 @@ class WarpAssemblyEngine:
         mat = obs_cfg.get("material", {})
         rho_obs = float(mat.get("density", 1250.0))
         c_obs = float(mat.get("sound_speed", 2200.0))
+        if not obs_cfg:
+            rho_obs = rho0
+            c_obs = c0
 
         # 2. 生成连续介质物性场
         wp.launch(
@@ -338,7 +341,7 @@ class WarpAssemblyEngine:
         rows = self.coo_rows.numpy()
         cols = self.coo_cols.numpy()
         data = self.coo_vals_r.numpy() + 1j * self.coo_vals_i.numpy()
-        rhs = self.rhs_r.numpy() + 1j * self.rhs_i.numpy()
+        rhs = (self.rhs_r.numpy() + 1j * self.rhs_i.numpy()).astype(np.complex128)
 
         valid_mask = (data != 0.0)
         A = sp.csc_matrix((data[valid_mask], (rows[valid_mask], cols[valid_mask])),
