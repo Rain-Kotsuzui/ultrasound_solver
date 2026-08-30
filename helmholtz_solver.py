@@ -3,9 +3,9 @@ import numpy as np
 import scipy.sparse as sp
 import cupy as cp
 import cupyx.scipy.sparse as csp
-import cupyx.scipy.sparse.linalg as csplinalg
 import warp as wp
 
+from nvmath.sparse.advanced import DirectSolver
 from pypardiso import PyPardisoSolver
 from config import SimulationConfig
 from transducer_array import TransducerArray
@@ -17,7 +17,7 @@ class HelmholtzDirectSolver:
     智能混合直接求解器 (Smart Hybrid Direct Solver)
     - 阶段 1: Warp GPU 极速组装复数稀疏矩阵
     - 阶段 2: 智能预估显存
-        - 显存充足 -> 走 CuPy 显存极速复数直接求解
+        - 显存充足 -> 走 NVIDIA cuDSS GPU 稀疏直接求解
         - 显存告急 -> 转为 2N x 2N 实数分块矩阵，走 CPU Pardiso 大内存多核求解
     """
     def __init__(self, config: SimulationConfig):
@@ -48,7 +48,7 @@ class HelmholtzDirectSolver:
         nnz_lu_estimate = 1.2 * (N ** (4.0 / 3.0))
         # Complex128 占用预估
         lu_size_gb = nnz_lu_estimate * 20.0 / (1024**3)
-        # cuSolver 工作区预估
+        # GPU 稀疏直接分解工作区预估
         workspace_gb = lu_size_gb * 7.5
         total_required_gb = lu_size_gb + workspace_gb + 0.5
 
@@ -62,16 +62,16 @@ class HelmholtzDirectSolver:
         print(f"  --> 空间自由度: {N:,}")
         print(f"  --> 预估 L+U 填充元: {int(nnz_lu_estimate):,} 个")
         print(f"  --> 预估分解因子显存: {lu_size_gb:.2f} GB")
-        print(f"  --> 预估 cuSolver 工作区: {workspace_gb:.2f} GB")
+        print(f"  --> 预估 GPU 分解工作区: {workspace_gb:.2f} GB")
         print(f"  --> [总计需求] 约 {total_required_gb:.2f} GB VRAM")
         print(f"  --> [硬件状态] GPU 空闲显存: {free_mem_gb:.2f} GB / {total_mem_gb:.2f} GB")
         
         is_gpu_feasible = (total_required_gb + 1.0) < free_mem_gb
         
         if is_gpu_feasible:
-            print("  ✅ 结论: 显存充足，调度至 [CuPy GPU 原生求逆]。")
+            print("  [OK] 结论: 显存充足，调度至 [NVIDIA cuDSS GPU 直接求解]。")
         else:
-            print("  ⚠️ 结论: 显存不足将触发 OOM，调度至 [Intel MKL Pardiso (系统内存)]。")
+            print("  [WARN] 结论: 显存不足将触发 OOM，调度至 [Intel MKL Pardiso (系统内存)]。")
         print("-" * 55)
 
         return is_gpu_feasible
@@ -102,7 +102,7 @@ class HelmholtzDirectSolver:
             bcs_dict=self.cfg.boundary_conditions
         )
         t_assemble = time.perf_counter() - t0
-        print(f"✓ 阶段 1/2: Warp GPU 矩阵装配完成 | NNZ: {A_csr.nnz:,} | 耗时: {t_assemble*1000:.2f} ms")
+        print(f"[OK] 阶段 1/2: Warp GPU 矩阵装配完成 | NNZ: {A_csr.nnz:,} | 耗时: {t_assemble*1000:.2f} ms")
         
         use_gpu = self._estimate_vram_and_decide_backend()
         self.solve_backend = "gpu" if use_gpu else "cpu"
@@ -110,15 +110,15 @@ class HelmholtzDirectSolver:
         t0 = time.perf_counter()
 
         if self.solve_backend == "gpu":
-            print("▶ 阶段 2/2: 调用 CuPy cuSolver 执行 GPU 显存复数直接分解...")
+            print("[RUN] 阶段 2/2: 调用 NVIDIA cuDSS 执行 GPU 稀疏直接分解...")
             self.A_cached_csr_gpu = csp.csr_matrix(A_csr)
             rhs_gpu = cp.array(rhs, dtype=cp.complex128)
-            
-            u_gpu = csplinalg.spsolve(self.A_cached_csr_gpu, rhs_gpu)
+
+            u_gpu = self._solve_gpu_direct(self.A_cached_csr_gpu, rhs_gpu)
             u_vec = cp.asnumpy(u_gpu)
             
         else:
-            print("▶ 阶段 2/2: 转为 2N x 2N 纯实数矩阵并调用 Pardiso 多核分解...")
+            print("[RUN] 阶段 2/2: 转为 2N x 2N 纯实数矩阵并调用 Pardiso 多核分解...")
             
             A_R = A_csr.real
             A_I = A_csr.imag
@@ -139,7 +139,7 @@ class HelmholtzDirectSolver:
             self.A_cached_big_T = A_big.transpose().tocsr()
 
         t_solve = time.perf_counter() - t0
-        print(f"✓ 阶段 2/2: 直接求逆完成! 耗时: {t_solve:.2f} 秒")
+        print(f"[OK] 阶段 2/2: 直接求逆完成! 耗时: {t_solve:.2f} 秒")
         print("=" * 65)
 
         return u_vec.reshape(
@@ -147,13 +147,30 @@ class HelmholtzDirectSolver:
             order="F",
         )
 
+    @staticmethod
+    def _solve_gpu_direct(A_gpu, rhs_gpu):
+        with DirectSolver(A_gpu, rhs_gpu) as solver:
+            solver.plan()
+            solver.factorize()
+            solution = solver.solve()
+
+        relative_residual = cp.linalg.norm(A_gpu @ solution - rhs_gpu) / cp.linalg.norm(rhs_gpu)
+        relative_residual = float(relative_residual.get())
+        is_finite = bool(cp.isfinite(solution).all().get())
+        if not is_finite or relative_residual > 1.0e-4:
+            raise RuntimeError(
+                f"GPU direct solve failed validation: relative residual={relative_residual:.3e}"
+            )
+        print(f"  --> cuDSS 相对残差: {relative_residual:.3e}")
+        return solution
+
     def solve_adjoint(self, adjoint_rhs: np.ndarray) -> np.ndarray:
         """伴随状态快速直接回代接口"""
         if self.solve_backend == "gpu":
             # GPU 极速回代
             A_H_gpu = self.A_cached_csr_gpu.conjugate().transpose().tocsr()
             adj_rhs_gpu = cp.array(adjoint_rhs, dtype=cp.complex128)
-            v_gpu = csplinalg.spsolve(A_H_gpu, adj_rhs_gpu)
+            v_gpu = self._solve_gpu_direct(A_H_gpu, adj_rhs_gpu)
             v_vec = cp.asnumpy(v_gpu)
             
         else:
