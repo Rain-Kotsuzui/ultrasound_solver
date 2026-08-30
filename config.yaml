@@ -1,0 +1,48 @@
+mode: "baseline"             # baseline / inverse
+
+# 1. 背景物理介质参数 (20°C 空气)
+physics:
+  sound_speed: 343.0         # 介质声速 c0 (m/s)
+  medium_density: 1.21       # 空气密度 rho0 (kg/m^3)
+
+# 2. 超声波换能器硬件参数
+transducer_specs:
+  frequency: 40000.0         # 换能器工作频率 f (Hz), 40 kHz
+  spl_db: 115.0              # 灵敏度/声压级 SPL (dB)
+  spl_distance: 0.3          # 标定测试距离 (m), 0.3m (30cm)
+  diameter: 0.01           # 换能器有效振动直径 D (m), 10mm
+  pitch: 0.01              # 阵元中心间距 (m), 10mm
+  array_n: 9               
+
+# 3. 计算区域与空间离散网格
+domain:
+  box_size: [0.1, 0.1, 0.1]  # 物理空间总边长 [Lx, Ly, Lz] (m)
+  grid_size: [108, 108, 108]       # 三维网格点数 [Nx, Ny, Nz] 
+
+# 4. 6 面边界条件 (reflecting: 刚性全反射 | open: 自由辐射 Sommerfeld ABC)
+boundary_conditions:
+  "-x": "open"         # 左侧面
+  "+x": "open"         # 右侧面
+  "-y": "open"         # 后侧面
+  "+y": "open"         # 前侧面
+  "-z": "reflecting"         # 底面除阵元外的挡板区域
+  "+z": "open"               # 顶面自由辐射
+
+# 5. 多目标焦点物理坐标 [x, y, z] (m)
+targets:
+  - point: [0.05, 0.05, 0.05]     # 目标点 1: 空间几何中心
+
+# 6. 基于材料物性的 SDF 场景障碍物
+# obstacles:
+#   - type: "sphere"
+#     center: [0.040, 0.040, 0.022]     # 球心位置
+#     radius: 0.012                      # 半径 1.2 cm
+#     material:
+#       density: 1250.0                  # 密度 rho (kg/m^3)
+#       sound_speed: 2200.0              # 纵波声速 c (m/s)
+
+# 7. 输出与交互
+io:
+  output_file: "ultrasound_field.npz"
+  auto_visualize: true
+  colormap: "plasma"
