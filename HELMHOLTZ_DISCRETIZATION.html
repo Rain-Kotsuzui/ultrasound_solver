@@ -1,0 +1,400 @@
+<div id="discretization-doc">
+  <style>
+    #discretization-doc {
+      max-width: 1020px;
+      margin: 0 auto;
+      padding: 28px 34px 64px;
+      color: #1f2933;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.62;
+      background: #ffffff;
+    }
+
+    #discretization-doc h1 {
+      margin: 0 0 20px;
+      font-size: 30px;
+      line-height: 1.25;
+    }
+
+    #discretization-doc h2 {
+      margin-top: 34px;
+      border-bottom: 1px solid #d8dee4;
+      padding-bottom: 6px;
+      font-size: 22px;
+    }
+
+    #discretization-doc h3 {
+      margin-top: 26px;
+      font-size: 18px;
+    }
+
+    #discretization-doc code {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: #f3f4f6;
+      font-family: Consolas, "SFMono-Regular", monospace;
+      font-size: 0.94em;
+    }
+
+    #discretization-doc pre {
+      padding: 14px 16px;
+      overflow: auto;
+      border-radius: 6px;
+      background: #f6f8fa;
+    }
+
+    #discretization-doc pre code {
+      padding: 0;
+      background: transparent;
+    }
+
+    #discretization-doc table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 14px 0 20px;
+    }
+
+    #discretization-doc th,
+    #discretization-doc td {
+      border: 1px solid #d8dee4;
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    #discretization-doc th {
+      background: #f6f8fa;
+    }
+
+    #discretization-doc .note {
+      border-left: 4px solid #2563eb;
+      padding: 10px 14px;
+      background: #eff6ff;
+    }
+  </style>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [["\\(", "\\)"]],
+        displayMath: [["\\[", "\\]"]]
+      },
+      svg: {
+        fontCache: "global"
+      }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <h1>Helmholtz Equation Discretization</h1>
+
+  <p>本文档说明当前代码如何把连续声学 Helmholtz 方程离散成线性方程组：</p>
+
+  \[
+  A u = b
+  \]
+
+  <p>对应实现主要位于 <code>warp_utils.py</code> 的 <code>assemble_helmholtz_kernel</code>。</p>
+
+
+  <h2>连续方程</h2>
+
+  <p>当前离散对应的变参数频域声学方程可写成：</p>
+
+  \[
+  \nabla \cdot \left(\frac{1}{\rho(\mathbf{x})}\nabla u(\mathbf{x})\right)
+  +
+  \frac{\omega^2}{\rho(\mathbf{x})c(\mathbf{x})^2}u(\mathbf{x})
+  =
+  f(\mathbf{x})
+  \]
+
+  <p>其中：</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>符号</th>
+        <th>含义</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>\(u(\mathbf{x})\)</td>
+        <td>复声压场</td>
+      </tr>
+      <tr>
+        <td>\(\rho(\mathbf{x})\)</td>
+        <td>空间变密度</td>
+      </tr>
+      <tr>
+        <td>\(c(\mathbf{x})\)</td>
+        <td>空间变声速</td>
+      </tr>
+      <tr>
+        <td>\(\omega = 2\pi f\)</td>
+        <td>角频率</td>
+      </tr>
+      <tr>
+        <td>\(f(\mathbf{x})\)</td>
+        <td>外部源项或由边界激励等效形成的右端</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>在当前实现中，内部普通网格点没有体源项，因此右端通常为 0。换能器激励通过 Dirichlet 行写入右端。</p>
+
+  <h2>网格与编号</h2>
+
+  <p>计算域使用等间距 3D 直角网格：</p>
+
+  \[
+  x_i = i\Delta x,\qquad
+  y_j = j\Delta x,\qquad
+  z_k = k\Delta x
+  \]
+
+  <p>当前求解器要求各向同性网格：</p>
+
+  \[
+  \Delta x = \Delta y = \Delta z
+  \]
+
+  <p>三维网格点 \((i,j,k)\) 被展平成一维自由度编号：</p>
+
+  \[
+  p(i,j,k) = i + jN_x + kN_xN_y
+  \]
+
+  <p>代码中对应：</p>
+
+  <pre><code>idx = i + j * nx + k * (nx * ny)</code></pre>
+
+  <h2>介质参数离散</h2>
+
+  <p>每个网格点保存局部密度和声速：</p>
+
+  \[
+  \rho_{i,j,k} = \rho(x_i,y_j,z_k)
+  \]
+
+  \[
+  c_{i,j,k} = c(x_i,y_j,z_k)
+  \]
+
+  <p>代码中通过 SDF 和 smooth Heaviside 在背景介质与障碍物介质之间平滑过渡：</p>
+
+  \[
+  \rho = \rho_{\mathrm{obs}} + (\rho_0 - \rho_{\mathrm{obs}})H(\phi)
+  \]
+
+  \[
+  c = c_{\mathrm{obs}} + (c_0 - c_{\mathrm{obs}})H(\phi)
+  \]
+
+  <p>其中 \(\phi\) 是 SDF 值，\(H(\phi)\) 是平滑 Heaviside 函数。</p>
+
+  <h2>内部点 7 点 stencil</h2>
+
+  <p>对于非换能器、非开放边界的普通点，代码使用 7 点有限差分 stencil。</p>
+
+  <p>记当前点为：</p>
+
+  \[
+  P = (i,j,k)
+  \]
+
+  <p>当前点密度为：</p>
+
+  \[
+  \rho_P = \rho_{i,j,k}
+  \]
+
+  <p>相邻点 \(Q\) 与当前点 \(P\) 的面系数定义为：</p>
+
+  \[
+  a_{P,Q}
+  =
+  \frac{1}{\Delta x^2}
+  \frac{2}{\rho_P + \rho_Q}
+  \]
+
+  <p>这相当于在半网格面上使用 \(1/\rho\) 的调和型平均。</p>
+
+  <p>质量项为：</p>
+
+  \[
+  m_P =
+  \frac{\omega^2}{\rho_P c_P^2}
+  \]
+
+  <p>代码中的矩阵行为：</p>
+
+  \[
+  A_{P,Q} = a_{P,Q}
+  \qquad
+  Q \in \mathcal{N}(P)
+  \]
+
+  \[
+  A_{P,P}
+  =
+  m_P
+  -
+  \sum_{Q \in \mathcal{N}(P)} a_{P,Q}
+  \]
+
+  <p>因此普通内部点的离散方程为：</p>
+
+  \[
+  \left(
+  m_P - \sum_{Q \in \mathcal{N}(P)} a_{P,Q}
+  \right)u_P
+  +
+  \sum_{Q \in \mathcal{N}(P)} a_{P,Q}u_Q
+  =
+  0
+  \]
+
+  <p>其中 \(\mathcal{N}(P)\) 是当前点存在的六个轴向邻居集合。</p>
+
+  <h2>Reflecting 边界</h2>
+
+  <p><code>reflecting</code> 边界在当前代码中不是单独替换为一条边界方程，而是通过 stencil 的缺失邻居处理实现。</p>
+
+  <p>如果某个方向越界，代码不会加入该方向的邻居项，也不会把该方向的通量加入对角线求和。</p>
+
+  <p>例如在 \(-x\) 反射边界上，若 \(i=0\)，则不存在 \(i-1\) 邻居：</p>
+
+  \[
+  a_{P,P-\hat{x}} = 0
+  \]
+
+  <p>这等价于该边界方向的离散零法向通量近似：</p>
+
+  \[
+  \frac{\partial u}{\partial n} = 0
+  \]
+
+  <p>因此 reflecting 边界通过“缺失外侧通量”进入矩阵。</p>
+
+  <h2>Open 边界</h2>
+
+  <p><code>open</code> 边界使用一阶 Sommerfeld 吸收边界条件：</p>
+
+  \[
+  \frac{\partial u}{\partial n} - i k_0 u = 0
+  \]
+
+  <p>其中：</p>
+
+  \[
+  k_0 = \frac{\omega}{c_0}
+  \]
+
+  <p>以 \(-x\) 边界为例，边界点为 \(P\)，域内相邻点为 \(Q=P+\hat{x}\)。代码使用：</p>
+
+  \[
+  \frac{u_P - u_Q}{\Delta x} - i k_0 u_P = 0
+  \]
+
+  <p>整理得到矩阵行：</p>
+
+  \[
+  \left(\frac{1}{\Delta x} - i k_0\right)u_P
+  -
+  \frac{1}{\Delta x}u_Q
+  =
+  0
+  \]
+
+  <p>因此对应矩阵条目为：</p>
+
+  \[
+  A_{P,P} = \frac{1}{\Delta x} - i k_0
+  \]
+
+  \[
+  A_{P,Q} = -\frac{1}{\Delta x}
+  \]
+
+  \[
+  b_P = 0
+  \]
+
+  <p>其他开放边界面使用同样逻辑，只是域内邻居方向不同。</p>
+
+  <h2>换能器 Dirichlet 激励</h2>
+
+  <p>底面 \(z=0\) 上落入某个换能器圆盘区域的网格点被设置为 Dirichlet 激励点。</p>
+
+  <p>若该点属于第 \(r\) 个换能器，幅值为 \(A_r\)，相位为 \(\phi_r\)，则：</p>
+
+  \[
+  u_P = A_r e^{i\phi_r}
+  \]
+
+  <p>矩阵中这一行被替换为单位行：</p>
+
+  \[
+  A_{P,P} = 1
+  \]
+
+  \[
+  A_{P,Q} = 0
+  \qquad Q \neq P
+  \]
+
+  \[
+  b_P = A_r e^{i\phi_r}
+  \]
+
+  <p>代码中对应实部和虚部写法：</p>
+
+  <pre><code>rhs_r[idx] = amp * cos(phase)
+rhs_i[idx] = amp * sin(phase)</code></pre>
+
+  <h2>最终线性系统</h2>
+
+  <p>对所有网格点重复上述规则后，每个点 \(P\) 对应矩阵的一行。</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>点类型</th>
+        <th>矩阵行来源</th>
+        <th>右端来源</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>内部点</td>
+        <td>变参数 7 点 Helmholtz stencil</td>
+        <td>0</td>
+      </tr>
+      <tr>
+        <td>reflecting 边界点</td>
+        <td>缺失外侧通量的 stencil</td>
+        <td>0</td>
+      </tr>
+      <tr>
+        <td>open 边界点</td>
+        <td>Sommerfeld 一阶边界方程</td>
+        <td>0</td>
+      </tr>
+      <tr>
+        <td>换能器点</td>
+        <td>Dirichlet 单位行</td>
+        <td>\(A_r e^{i\phi_r}\)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>最终得到复数稀疏线性系统：</p>
+
+  \[
+  A u = b
+  \]
+
+  <p>Schur 直接求解器后续只对这个已经装配好的 \(A\) 和 \(b\) 做代数消元，因此严格继承所有边界条件和换能器激励。</p>
+</div>

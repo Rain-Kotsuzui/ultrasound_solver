@@ -3,12 +3,13 @@ import numpy as np
 import scipy.sparse as sp
 import cupy as cp
 import cupyx.scipy.sparse as csp
-import cupyx.scipy.sparse.linalg as csplinalg
 import warp as wp
 
 from nvmath.sparse.advanced import DirectSolver
 from pypardiso import PyPardisoSolver
 from config import SimulationConfig
+from iterative_solver import GpuIterativeSolver
+from schur_direct_solver import RecursiveGridSchurDirectSolver
 from transducer_array import TransducerArray
 from warp_utils import WarpAssemblyEngine
 
@@ -37,6 +38,13 @@ class HelmholtzDirectSolver:
         self.A_cached_csr_gpu = None
         self.A_cached_csr_cpu = None
         self.A_cached_big_T = None  # CPU 备用的实数大矩阵转置缓存
+        self.schur_solver = None
+        self.iterative_solver = GpuIterativeSolver(
+            restart=int(self.cfg.solver.get("gmres_restart", 30)),
+            maxiter=int(self.cfg.solver.get("gmres_maxiter", 3000)),
+            rtol=float(self.cfg.solver.get("gmres_rtol", 1.0e-6)),
+            backward_error_tol=float(self.cfg.solver.get("gmres_backward_error_tol", 1.0e-4)),
+        )
         
         # Pardiso 配置为 mtype=11 (实数非对称稀疏矩阵)
         self.pardiso_solver = PyPardisoSolver(mtype=11)
@@ -107,26 +115,65 @@ class HelmholtzDirectSolver:
         
         t0 = time.perf_counter()
         self.A_cached_csr_cpu = A_csr.tocsr()
-        self.A_cached_csr_gpu = csp.csr_matrix(self.A_cached_csr_cpu)
-        rhs_gpu = cp.asarray(rhs, dtype=cp.complex128)
+        requested_backend = str(self.cfg.solver.get("backend", "gpu_iterative")).lower()
 
-        print("[RUN] 阶段 2/2: 调用 GPU 行缩放 Jacobi-GMRES 迭代求解...")
-        try:
-            u_gpu = self._solve_gpu_iterative(self.A_cached_csr_gpu, rhs_gpu)
-            u_vec = cp.asnumpy(u_gpu)
-            self.solve_backend = "gpu_iterative"
-        except RuntimeError as exc:
-            print(f"  [WARN] GPU 迭代法未通过校验: {exc}")
-            use_gpu_direct = self._estimate_vram_and_decide_backend()
-            if use_gpu_direct:
-                print("[RUN] 回退至 NVIDIA cuDSS GPU 稀疏直接分解...")
-                u_gpu = self._solve_gpu_direct(self.A_cached_csr_gpu, rhs_gpu)
-                u_vec = cp.asnumpy(u_gpu)
-                self.solve_backend = "gpu_direct"
+        if requested_backend == "nested_schur_direct":
+            print("[RUN] 阶段 2/2: 调用 Nested Schur 直接求解...")
+            reuse_factorization = bool(self.cfg.solver.get("reuse_factorization", True))
+            if self.schur_solver is None or not reuse_factorization:
+                self.schur_solver = RecursiveGridSchurDirectSolver.from_grid(
+                    matrix=self.A_cached_csr_cpu,
+                    nx=self.cfg.domain.nx,
+                    ny=self.cfg.domain.ny,
+                    nz=self.cfg.domain.nz,
+                    leaf_dofs=int(self.cfg.solver.get("leaf_dofs", 4096)),
+                    min_axis_size=int(self.cfg.solver.get("min_axis_size", 3)),
+                    schur_block_size=int(self.cfg.solver.get("schur_block_size", 256)),
+                    dense_backend=str(self.cfg.solver.get("dense_backend", "gpu")),
+                    gpu_min_separator_dofs=int(self.cfg.solver.get("gpu_min_separator_dofs", 512)),
+                    parallel_depth=int(self.cfg.solver.get("parallel_depth", 1)),
+                    profile_print_depth=int(self.cfg.solver.get("profile_print_depth", 0)),
+                )
+                print(f"  --> Schur stats: {self.schur_solver.stats()}")
             else:
-                print("[RUN] 回退至 2N x 2N 实数 Pardiso CPU 直接分解...")
-                u_vec = self._solve_cpu_direct(self.A_cached_csr_cpu, rhs)
-                self.solve_backend = "cpu"
+                print("  --> 复用已缓存 Schur 因子，仅执行回代。")
+            u_vec = self.schur_solver.solve(rhs)
+            print(f"  --> Schur profile: {self.schur_solver.profile_summary()}")
+            self.solve_backend = "nested_schur_direct"
+
+        elif requested_backend == "gpu_direct":
+            print("[RUN] 阶段 2/2: 调用 NVIDIA cuDSS GPU 稀疏直接分解...")
+            self.A_cached_csr_gpu = csp.csr_matrix(self.A_cached_csr_cpu)
+            rhs_gpu = cp.asarray(rhs, dtype=cp.complex128)
+            u_gpu = self._solve_gpu_direct(self.A_cached_csr_gpu, rhs_gpu)
+            u_vec = cp.asnumpy(u_gpu)
+            self.solve_backend = "gpu_direct"
+
+        elif requested_backend == "cpu_direct":
+            print("[RUN] 阶段 2/2: 调用 Pardiso CPU 直接分解...")
+            u_vec = self._solve_cpu_direct(self.A_cached_csr_cpu, rhs)
+            self.solve_backend = "cpu"
+
+        else:
+            self.A_cached_csr_gpu = csp.csr_matrix(self.A_cached_csr_cpu)
+            rhs_gpu = cp.asarray(rhs, dtype=cp.complex128)
+            print("[RUN] 阶段 2/2: 调用 GPU 行缩放 Jacobi-GMRES 迭代求解...")
+            try:
+                u_gpu = self.iterative_solver.solve(self.A_cached_csr_gpu, rhs_gpu)
+                u_vec = cp.asnumpy(u_gpu)
+                self.solve_backend = "gpu_iterative"
+            except RuntimeError as exc:
+                print(f"  [WARN] GPU 迭代法未通过校验: {exc}")
+                use_gpu_direct = self._estimate_vram_and_decide_backend()
+                if use_gpu_direct:
+                    print("[RUN] 回退至 NVIDIA cuDSS GPU 稀疏直接分解...")
+                    u_gpu = self._solve_gpu_direct(self.A_cached_csr_gpu, rhs_gpu)
+                    u_vec = cp.asnumpy(u_gpu)
+                    self.solve_backend = "gpu_direct"
+                else:
+                    print("[RUN] 回退至 2N x 2N 实数 Pardiso CPU 直接分解...")
+                    u_vec = self._solve_cpu_direct(self.A_cached_csr_cpu, rhs)
+                    self.solve_backend = "cpu"
 
         t_solve = time.perf_counter() - t0
         print(f"[OK] 阶段 2/2: 线性系统求解完成! 耗时: {t_solve:.2f} 秒")
@@ -136,74 +183,6 @@ class HelmholtzDirectSolver:
             (self.cfg.domain.nx, self.cfg.domain.ny, self.cfg.domain.nz),
             order="F",
         )
-
-    @staticmethod
-    def _solve_gpu_iterative(A_gpu, rhs_gpu):
-        if float(cp.linalg.norm(rhs_gpu).get()) == 0.0:
-            return cp.zeros_like(rhs_gpu)
-
-        row_max = cp.asarray(abs(A_gpu).max(axis=1).toarray()).ravel()
-        row_scale = cp.where(row_max > 0.0, 1.0 / row_max, 1.0)
-        scaled_rhs = row_scale * rhs_gpu
-        scaled_operator = csplinalg.LinearOperator(
-            A_gpu.shape,
-            matvec=lambda vector: row_scale * (A_gpu @ vector),
-            dtype=A_gpu.dtype,
-        )
-
-        scaled_diagonal = row_scale * A_gpu.diagonal()
-        inverse_diagonal = cp.where(
-            cp.abs(scaled_diagonal) > 0.0,
-            1.0 / scaled_diagonal,
-            1.0,
-        )
-        preconditioner = csplinalg.LinearOperator(
-            A_gpu.shape,
-            matvec=lambda vector: inverse_diagonal * vector,
-            dtype=A_gpu.dtype,
-        )
-
-        residuals = []
-        solution, info = csplinalg.gmres(
-            scaled_operator,
-            scaled_rhs,
-            M=preconditioner,
-            restart=30,
-            maxiter=3000,
-            rtol=1.0e-6,
-            atol=0.0,
-            callback=residuals.append,
-            callback_type="pr_norm",
-        )
-        scaled_residual = cp.linalg.norm(
-            scaled_operator @ solution - scaled_rhs
-        ) / cp.linalg.norm(scaled_rhs)
-        scaled_residual = float(scaled_residual.get())
-        residual = A_gpu @ solution - rhs_gpu
-        denominator = abs(A_gpu) @ cp.abs(solution) + cp.abs(rhs_gpu)
-        backward_error = cp.max(
-            cp.abs(residual) / cp.maximum(denominator, 1.0e-30)
-        )
-        backward_error = float(backward_error.get())
-        is_finite = bool(cp.isfinite(solution).all().get())
-        iterations = len(residuals) * 30
-        if (
-            info != 0
-            or not is_finite
-            or scaled_residual > 1.0e-6
-            or backward_error > 1.0e-4
-        ):
-            raise RuntimeError(
-                f"info={info}, iterations={iterations}, "
-                f"scaled residual={scaled_residual:.3e}, "
-                f"backward error={backward_error:.3e}"
-            )
-        print(
-            f"  --> GMRES 迭代次数: {iterations} | "
-            f"缩放相对残差: {scaled_residual:.3e} | "
-            f"后向误差: {backward_error:.3e}"
-        )
-        return solution
 
     def _solve_cpu_direct(self, A_csr, rhs):
         A_big = sp.bmat(
@@ -243,13 +222,16 @@ class HelmholtzDirectSolver:
                 f"expected {self.total_dofs}"
             )
 
-        if self.solve_backend in {"gpu_iterative", "gpu_direct"}:
+        if self.solve_backend == "nested_schur_direct":
+            v_vec = self.schur_solver.solve_adjoint(adjoint_rhs_vec)
+
+        elif self.solve_backend in {"gpu_iterative", "gpu_direct"}:
             A_H_cpu = self.A_cached_csr_cpu.conjugate().transpose().tocsr()
             A_H_gpu = csp.csr_matrix(A_H_cpu)
             adj_rhs_gpu = cp.asarray(adjoint_rhs_vec)
             if self.solve_backend == "gpu_iterative":
                 try:
-                    v_gpu = self._solve_gpu_iterative(A_H_gpu, adj_rhs_gpu)
+                    v_gpu = self.iterative_solver.solve(A_H_gpu, adj_rhs_gpu)
                     v_vec = cp.asnumpy(v_gpu)
                 except RuntimeError as exc:
                     print(f"  [WARN] GPU 伴随迭代未通过校验: {exc}")

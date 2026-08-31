@@ -77,6 +77,7 @@ class SimulationConfig:
     targets: List[List[float]]
     obstacles: List[Dict]
     io: IOConfig
+    solver: Dict[str, Union[str, int, float, bool]] = field(default_factory=dict)
 
     @property
     def frequency(self) -> float:
@@ -127,5 +128,6 @@ class SimulationConfig:
             boundary_conditions=raw["boundary_conditions"],
             targets=targets_list,
             obstacles=raw.get("obstacles", []),
-            io=IOConfig(**raw.get("io", {}))
+            io=IOConfig(**raw.get("io", {})),
+            solver=raw.get("solver", {})
         )

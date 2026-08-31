@@ -19,7 +19,23 @@ domain:
   box_size: [0.1, 0.1, 0.1]  # 物理空间总边长 [Lx, Ly, Lz] (m)
   grid_size: [108, 108, 108]       # 三维网格点数 [Nx, Ny, Nz] 
 
-# 4. 6 面边界条件 (reflecting: 刚性全反射 | open: 自由辐射 Sommerfeld ABC)
+# 4. 线性求解器配置
+solver:
+  backend: "gpu_iterative"         # gpu_iterative / nested_schur_direct / gpu_direct / cpu_direct
+  gmres_restart: 30                # GPU GMRES 每轮 Krylov 子空间大小
+  gmres_maxiter: 3000              # GPU GMRES 最大重启轮数
+  gmres_rtol: 1.0e-6               # 缩放系统相对残差阈值
+  gmres_backward_error_tol: 1.0e-4 # 原系统后向误差阈值
+  leaf_dofs: 4096                  # Schur: 递归叶子块最大自由度
+  min_axis_size: 3                 # Schur: 允许继续切分的最小轴长度
+  schur_block_size: 256            # Schur: 构造 Schur 补时的列分块大小
+  dense_backend: "gpu"             # Schur: separator dense LU 后端: cpu / gpu
+  gpu_min_separator_dofs: 512      # Schur: separator 规模达到该阈值才使用 GPU LU
+  reuse_factorization: true        # Schur: 相位优化时复用因子，仅更新 RHS 并回代
+  parallel_depth: 1                # Schur: 并行构造子树的递归深度
+  profile_print_depth: 0           # Schur: 打印前几层实时耗时；0 只打印顶层
+
+# 5. 6 面边界条件 (reflecting: 刚性全反射 | open: 自由辐射 Sommerfeld ABC)
 boundary_conditions:
   "-x": "open"         # 左侧面
   "+x": "open"         # 右侧面
@@ -28,11 +44,11 @@ boundary_conditions:
   "-z": "reflecting"         # 底面除阵元外的挡板区域
   "+z": "open"               # 顶面自由辐射
 
-# 5. 多目标焦点物理坐标 [x, y, z] (m)
+# 6. 多目标焦点物理坐标 [x, y, z] (m)
 targets:
   - point: [0.05, 0.05, 0.05]     # 目标点 1: 空间几何中心
 
-# 6. 基于材料物性的 SDF 场景障碍物
+# 7. 基于材料物性的 SDF 场景障碍物
 # obstacles:
 #   - type: "sphere"
 #     center: [0.040, 0.040, 0.022]     # 球心位置
@@ -41,7 +57,7 @@ targets:
 #       density: 1250.0                  # 密度 rho (kg/m^3)
 #       sound_speed: 2200.0              # 纵波声速 c (m/s)
 
-# 7. 输出与交互
+# 8. 输出与交互
 io:
   output_file: "ultrasound_field.npz"
   auto_visualize: true
