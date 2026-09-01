@@ -52,6 +52,7 @@ def assemble_helmholtz_kernel(
     coo_vals_i: wp.array(dtype=float),
     rhs_r: wp.array(dtype=float),
     rhs_i: wp.array(dtype=float),
+    emitter_map_bottom: wp.array(dtype=int),
     # 预计算物理场
     rho_field: wp.array(dtype=float, ndim=3),
     c_field: wp.array(dtype=float, ndim=3),
@@ -82,6 +83,7 @@ def assemble_helmholtz_kernel(
     emitter_idx = int(0)
     
     if k == 0:
+        emitter_map_bottom[i + j * nx] = -1
         center_x = float(nx - 1) * dx * 0.5
         center_y = float(ny - 1) * dx * 0.5
         half_span = float(array_n - 1) * trans_pitch * 0.5
@@ -99,6 +101,7 @@ def assemble_helmholtz_kernel(
             if dist_sq <= trans_radius * trans_radius:
                 is_emitter = int(1)
                 emitter_idx = ax * array_n + ay
+                emitter_map_bottom[i + j * nx] = emitter_idx
 
     # ----------------------------------------------------
     # 分支 A: 换能器激励点 (Dirichlet: u = A * exp(i * phi))
@@ -275,6 +278,8 @@ class WarpAssemblyEngine:
         self.coo_vals_i = wp.zeros(self.total_entries, dtype=float, device=self.device)
         self.rhs_r = wp.zeros(self.total_dofs, dtype=float, device=self.device)
         self.rhs_i = wp.zeros(self.total_dofs, dtype=float, device=self.device)
+        self.emitter_map_bottom = wp.zeros(nx * ny, dtype=int, device=self.device)
+        self._emitter_map_cache = None
 
     def assemble_system_gpu(
         self,
@@ -325,6 +330,7 @@ class WarpAssemblyEngine:
                 self.coo_rows, self.coo_cols,
                 self.coo_vals_r, self.coo_vals_i,
                 self.rhs_r, self.rhs_i,
+                self.emitter_map_bottom,
                 self.rho_field, self.c_field,
                 trans_phases_wp, trans_amps_wp,
                 array_n, trans_radius, trans_pitch,
@@ -336,6 +342,7 @@ class WarpAssemblyEngine:
             ],
             device=self.device
         )
+        self._emitter_map_cache = self.emitter_map_bottom.numpy()
 
         # 6. 转为 CSC 格式
         rows = self.coo_rows.numpy()
@@ -348,3 +355,33 @@ class WarpAssemblyEngine:
                           shape=(self.total_dofs, self.total_dofs), dtype=np.complex128)
 
         return A, rhs
+
+    def assemble_rhs(
+        self,
+        trans_phases_np: np.ndarray,
+        trans_amps_np: np.ndarray,
+    ) -> np.ndarray:
+        """Update only the phase-dependent Dirichlet right-hand side."""
+        if self._emitter_map_cache is None:
+            raise RuntimeError("assemble_system_gpu() must be called first")
+
+        emitter_map = self._emitter_map_cache
+        valid = emitter_map >= 0
+        emitter_ids = emitter_map[valid].astype(np.int64)
+        bottom_rhs = np.zeros(self.nx * self.ny, dtype=np.complex128)
+        bottom_rhs[valid] = (
+            trans_amps_np[emitter_ids]
+            * np.exp(1j * trans_phases_np[emitter_ids])
+        )
+        rhs = np.zeros(self.total_dofs, dtype=np.complex128)
+        rhs[: self.nx * self.ny] = bottom_rhs
+        return rhs
+
+    def emitter_dof_map(self) -> tuple[np.ndarray, np.ndarray]:
+        if self._emitter_map_cache is None:
+            raise RuntimeError("assemble_system_gpu() must be called first")
+        valid = self._emitter_map_cache >= 0
+        return (
+            np.flatnonzero(valid).astype(np.int64),
+            self._emitter_map_cache[valid].astype(np.int64),
+        )

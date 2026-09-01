@@ -90,6 +90,8 @@
 
   <p>本文档说明当前代码如何把连续声学 Helmholtz 方程离散成线性方程组：</p>
 
+  <p class="note">直接与迭代求解架构见 <a href="SOLVER_ARCHITECTURE.html">SOLVER_ARCHITECTURE.html</a>；递归 Schur 推导见 <a href="SCHUR_SOLVER.html">SCHUR_SOLVER.html</a>。</p>
+
   \[
   A u = b
   \]
@@ -396,5 +398,59 @@ rhs_i[idx] = amp * sin(phase)</code></pre>
   A u = b
   \]
 
-  <p>Schur 直接求解器后续只对这个已经装配好的 \(A\) 和 \(b\) 做代数消元，因此严格继承所有边界条件和换能器激励。</p>
+  <p>所有后端都只对这个已经装配好的 \(A\) 和 \(b\) 做代数运算，因此严格继承所有边界条件和换能器激励。</p>
+
+  <h2>边界行的精确静态凝聚</h2>
+
+  <p>默认直接后端会在装配之后消去换能器 Dirichlet 行和 open Sommerfeld 行。把保留的内部/reflecting 自由度记为 \(R\)，被消去的边界自由度记为 \(E\)，原方程写为：</p>
+
+  \[
+  \begin{bmatrix}
+  A_{RR} & A_{RE} \\
+  A_{ER} & A_{EE}
+  \end{bmatrix}
+  \begin{bmatrix}
+  u_R \\
+  u_E
+  \end{bmatrix}
+  =
+  \begin{bmatrix}
+  b_R \\
+  b_E
+  \end{bmatrix}
+  \]
+
+  <p>对第二行做精确代数消元：</p>
+
+  \[
+  u_E = A_{EE}^{-1}(b_E-A_{ER}u_R)
+  \]
+
+  <p>得到约化方程：</p>
+
+  \[
+  \left(
+  A_{RR}-A_{RE}A_{EE}^{-1}A_{ER}
+  \right)u_R
+  =
+  b_R-A_{RE}A_{EE}^{-1}b_E
+  \]
+
+  <p>由于当前每个 open 边界方程只依赖自身和一个向内邻居，边界传递关系保持稀疏。约化矩阵严格满足复对称关系 \(S=S^T\)，代码会在分解前数值验证该性质。求得 \(u_R\) 后再按上式恢复 \(u_E\)，最终返回的仍是原始 \(A u=b\) 的完整空间解。</p>
+
+  <h2>相位更新时的矩阵复用</h2>
+
+  <p>当前优化变量只有换能器相位。介质、障碍物、频率、网格和边界条件不变时，矩阵 \(A\) 不随相位变化，只有 Dirichlet 右端变化：</p>
+
+  \[
+  b(\phi) = B e^{i\phi}
+  \]
+
+  <p>因此第一次调用会装配 \(A\)、缓存底面阵元映射并建立求解因子；后续相位迭代只在已缓存的 Dirichlet 点上使用 <code>complex128</code> 更新复数 RHS：</p>
+
+  \[
+  b_P(\phi_r) = A_r e^{i\phi_r}
+  \]
+
+  <p>这不是近似或边界修改，只是避免重复计算与相位无关的矩阵条目。首次完整装配和 RHS-only 更新使用同一阵元几何映射。</p>
 </div>

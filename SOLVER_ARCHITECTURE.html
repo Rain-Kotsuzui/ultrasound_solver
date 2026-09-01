@@ -1,0 +1,323 @@
+<div id="solver-doc">
+  <style>
+    #solver-doc {
+      max-width: 1020px;
+      margin: 0 auto;
+      padding: 28px 34px 64px;
+      color: #1f2933;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.62;
+      background: #ffffff;
+    }
+
+    #solver-doc h1 {
+      margin: 0 0 20px;
+      font-size: 30px;
+      line-height: 1.25;
+    }
+
+    #solver-doc h2 {
+      margin-top: 34px;
+      border-bottom: 1px solid #d8dee4;
+      padding-bottom: 6px;
+      font-size: 22px;
+    }
+
+    #solver-doc code {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: #f3f4f6;
+      font-family: Consolas, "SFMono-Regular", monospace;
+      font-size: 0.94em;
+    }
+
+    #solver-doc pre {
+      padding: 14px 16px;
+      overflow: auto;
+      border-radius: 6px;
+      background: #f6f8fa;
+    }
+
+    #solver-doc pre code {
+      padding: 0;
+      background: transparent;
+    }
+
+    #solver-doc table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 14px 0 20px;
+    }
+
+    #solver-doc th,
+    #solver-doc td {
+      border: 1px solid #d8dee4;
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    #solver-doc th {
+      background: #f6f8fa;
+    }
+
+    #solver-doc .note {
+      border-left: 4px solid #2563eb;
+      padding: 10px 14px;
+      background: #eff6ff;
+    }
+
+    #solver-doc .warn {
+      border-left: 4px solid #b45309;
+      padding: 10px 14px;
+      background: #fff7ed;
+    }
+  </style>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [["\\(", "\\)"]],
+        displayMath: [["\\[", "\\]"]]
+      },
+      svg: {
+        fontCache: "global"
+      }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <h1>Helmholtz Solver Architecture</h1>
+
+  <p class="note">离散方程和边界条件见 <a href="HELMHOLTZ_DISCRETIZATION.html">HELMHOLTZ_DISCRETIZATION.html</a>；自研递归 Schur 的数学推导见 <a href="SCHUR_SOLVER.html">SCHUR_SOLVER.html</a>。</p>
+
+  <h2>固定矩阵、相位相关右端</h2>
+
+  <p>在网格、障碍物、介质、频率和边界条件固定时，系统写为：</p>
+
+  \[
+  A u(\phi) = b(\phi)
+  \]
+
+  <p>相位只出现在换能器 Dirichlet 右端中。定义 \(B\) 的第 \(r\) 列为第 \(r\) 个阵元在零相位时的边界激励，则：</p>
+
+  \[
+  b(\phi) = B w(\phi),
+  \qquad
+  w_r(\phi) = e^{i\phi_r}
+  \]
+
+  <p>因此工程流程分成两个阶段：</p>
+
+  <ol>
+    <li>首次调用：Warp 装配 \(A\)，求解器执行 analysis 和 factorization。</li>
+    <li>后续调用：只更新 \(b(\phi)\)，复用矩阵、预处理器或直接分解因子。</li>
+  </ol>
+
+  <p>首次矩阵装配同时缓存底面阵元映射。后续相位更新由 <code>WarpAssemblyEngine.assemble_rhs()</code> 直接在有效 Dirichlet 点上用 NumPy <code>complex128</code> 生成复数 RHS，不再遍历整个体网格。</p>
+
+  <h2>后端选择</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>backend</th>
+        <th>性质</th>
+        <th>适用范围</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>cudss_hybrid_direct</code></td>
+        <td>精确凝聚 Dirichlet/Open 边界后，对复对称约化矩阵执行 cuDSS 分解；持久复用 factorization；自动选择 hybrid execute 或 hybrid memory。</td>
+        <td>当前生产默认。已在 8 GiB GPU 上完成 \(108^3\) 前向和伴随求解。</td>
+      </tr>
+      <tr>
+        <td><code>nested_schur_direct</code></td>
+        <td>自研 Exact Schur / Nested Dissection；支持前向、伴随和多 RHS。</td>
+        <td>数学验证、中小规模和分解过程分析。</td>
+      </tr>
+      <tr>
+        <td><code>gpu_iterative</code></td>
+        <td>行缩放 Jacobi-GMRES。</td>
+        <td>低显存备选。它是容差控制的迭代解，不等同于精确直接分解。</td>
+      </tr>
+      <tr>
+        <td><code>gpu_direct</code></td>
+        <td>全 GPU cuDSS，一次性 plan/factor/solve。</td>
+        <td>小规模诊断；不复用因子。</td>
+      </tr>
+      <tr>
+        <td><code>cpu_direct</code></td>
+        <td>把复系统展开为 \(2N\times2N\) 实系统后调用 Pardiso。</td>
+        <td>兼容回退；内存和时间成本最高。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>精确边界静态凝聚</h2>
+
+  <p><code>BoundaryCondensedDirectSolver</code> 负责该步骤。原始矩阵由于 Dirichlet 单位行和 Sommerfeld 单边行不是对称矩阵，但所有保留的内部及 reflecting stencil 都是复对称的。把未知量分为保留自由度 \(R\) 和待消去边界自由度 \(E\)：</p>
+
+  \[
+  \begin{bmatrix}
+  A_{RR} & A_{RE} \\
+  A_{ER} & A_{EE}
+  \end{bmatrix}
+  \begin{bmatrix}
+  u_R \\
+  u_E
+  \end{bmatrix}
+  =
+  \begin{bmatrix}
+  b_R \\
+  b_E
+  \end{bmatrix}
+  \]
+
+  <p>精确消去边界变量：</p>
+
+  \[
+  S =
+  A_{RR} - A_{RE}A_{EE}^{-1}A_{ER}
+  \]
+
+  \[
+  \widehat b_R =
+  b_R - A_{RE}A_{EE}^{-1}b_E
+  \]
+
+  <p>当前边界行最多依赖一个向内邻居，因此齐次边界传递矩阵</p>
+
+  \[
+  T = -A_{EE}^{-1}A_{ER}
+  \]
+
+  <p>每行最多只有一个非零元，可以沿边界依赖链精确构造，不需要形成稠密逆矩阵。于是：</p>
+
+  \[
+  S = A_{RR} + A_{RE}T
+  \]
+
+  <p>每次构建都会验证 \(S=S^T\)。验证通过后只把 \(S\) 的下三角交给 cuDSS 复对称分解。求解后通过：</p>
+
+  \[
+  u_E = A_{EE}^{-1}b_E + T u_R
+  \]
+
+  <p>恢复完整空间声场。该过程是原始线性系统的精确块高斯消元，没有修改 PDE、障碍物、边界条件或解的定义。</p>
+
+  <h2>cuDSS 自动内存模式</h2>
+
+  <p><code>CuDSSHybridSymmetricSolver</code> 在 numerical factorization 之前读取 cuDSS symbolic analysis 返回的内存估算：</p>
+
+  <ul>
+    <li><code>peak_device_memory</code>：hybrid execute 的 GPU 峰值。</li>
+    <li><code>hybrid_min_device_memory</code>：hybrid memory mode 的最低 GPU 需求。</li>
+    <li><code>peak_host_memory</code>：hybrid memory mode 的主存因子需求。</li>
+  </ul>
+
+  <p><code>hybrid_execution_mode: "auto"</code> 的选择规则为：</p>
+
+  <pre><code>if hybrid-execute peak &lt;= GPU budget:
+    use hybrid execute
+elif HMM minimum &lt;= GPU budget:
+    re-plan with hybrid memory mode
+else:
+    stop before numerical factorization with a memory report</code></pre>
+
+  <p>GPU budget 同时受配置上限、当前空闲显存和预留空间约束：</p>
+
+  \[
+  M_{\mathrm{budget}}
+  =
+  \min\left(
+    M_{\mathrm{config}},
+    M_{\mathrm{free}} - M_{\mathrm{reserve}}
+  \right)
+  \]
+
+  <pre><code>hybrid_execution_mode: "auto"
+hybrid_device_memory_limit_gb: 5.6
+hybrid_device_memory_reserve_gb: 0.75
+hybrid_register_cuda_memory: false</code></pre>
+
+  <h2>前向与伴随</h2>
+
+  <p>前向求解为：</p>
+
+  \[
+  A u = b
+  \]
+
+  <p>伴随求解为：</p>
+
+  \[
+  A^H \lambda = q
+  \]
+
+  <p>自研 Schur 后端可直接复用同一棵消元树执行共轭转置回代。默认凝聚后端利用 \(S^T=S\)，因此：</p>
+
+  \[
+  S^H = \overline{S}
+  \]
+
+  \[
+  S^H y = r
+  \quad\Longleftrightarrow\quad
+  S\overline{y} = \overline{r}
+  \]
+
+  <p>所以伴随约化系统通过“共轭 RHS、使用同一因子求解、共轭结果”完成，再对 \(A_{EE}^H\) 做边界回代。前向和伴随不再各保存一份大型 cuDSS 因子。</p>
+
+  <h2>实测结果</h2>
+
+  <p>测试设备为 NVIDIA GeForce RTX 4070 Laptop GPU 8 GiB，数值类型为 <code>complex128</code>。</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>网格</th>
+        <th>后端/模式</th>
+        <th>首次前向</th>
+        <th>复用前向</th>
+        <th>结果</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>\(31^3\)</td>
+        <td>凝聚复对称 + hybrid execute</td>
+        <td>0.47 s</td>
+        <td>6.1 ms</td>
+        <td>前向残差 \(6.53\times10^{-9}\)，伴随 8.3 ms，残差 \(1.43\times10^{-14}\)。</td>
+      </tr>
+      <tr>
+        <td>\(61^3\)</td>
+        <td>凝聚复对称 + hybrid execute</td>
+        <td>6.85 s</td>
+        <td>46.5 ms</td>
+        <td>前向残差 \(9.09\times10^{-7}\)，伴随 61 ms，残差 \(7.02\times10^{-13}\)。</td>
+      </tr>
+      <tr>
+        <td>\(81^3\)</td>
+        <td>凝聚复对称</td>
+        <td>通过 symbolic 显存预检</td>
+        <td>因子可复用</td>
+        <td>显存需求低于未凝聚的一般 LU；\(108^3\) 已覆盖更大规模验证。</td>
+      </tr>
+      <tr>
+        <td>\(108^3\)</td>
+        <td>凝聚复对称 + hybrid memory</td>
+        <td>427.33 s</td>
+        <td>14.10 s</td>
+        <td>前向残差 \(2.69\times10^{-6}\)，伴随 8.15 s，残差 \(3.36\times10^{-12}\)。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="note">在 \(108^3\) 上，一般非对称 LU 的 HMM 最低显存约为 9.91 GiB；精确边界凝聚后的复对称分解将最低值降至约 5.46 GiB。当前配置把 cuDSS 显存限制为 5.6 GiB，实测完成了 numerical factorization、两次前向和一次伴随。</p>
+
+  <p class="warn">\(108^3\) 的约化因子仍需要约 18.63 GiB 主存。测试时其他应用占用了大量物理内存，Windows 发生页面交换，因此首次 427 秒主要受主存压力影响。运行大规模分解前关闭高内存应用，或者增加系统内存，可明显改善首次 factorization/solve 时间。</p>
+
+</div>

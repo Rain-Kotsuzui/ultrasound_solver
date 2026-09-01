@@ -21,11 +21,19 @@ domain:
 
 # 4. 线性求解器配置
 solver:
-  backend: "gpu_iterative"         # gpu_iterative / nested_schur_direct / gpu_direct / cpu_direct
+  backend: "cudss_hybrid_direct"   # cudss_hybrid_direct / gpu_iterative / nested_schur_direct / gpu_direct / cpu_direct
+  direct_residual_tol: 1.0e-4      # 直接法结果的相对残差上限
+  hybrid_num_threads: 1            # Windows 下稳定的 cuDSS hybrid CPU 线程数
+  hybrid_execution_mode: "auto"    # auto / hybrid_execute / hybrid_memory
+  hybrid_device_memory_limit_gb: 5.6 # HMM 最多使用的 GPU 显存
+  hybrid_device_memory_reserve_gb: 0.75 # 为 Warp、CUDA 上下文和显示系统预留显存
+  hybrid_register_cuda_memory: false # Windows 下禁用主存注册以提高稳定性
+  condensed_symmetry_tolerance: 1.0e-12 # 约化矩阵复对称性检查阈值
   gmres_restart: 30                # GPU GMRES 每轮 Krylov 子空间大小
   gmres_maxiter: 3000              # GPU GMRES 最大重启轮数
   gmres_rtol: 1.0e-6               # 缩放系统相对残差阈值
   gmres_backward_error_tol: 1.0e-4 # 原系统后向误差阈值
+  reuse_matrix: true               # 仅相位变化时跳过矩阵与介质场重装配
   leaf_dofs: 4096                  # Schur: 递归叶子块最大自由度
   min_axis_size: 3                 # Schur: 允许继续切分的最小轴长度
   schur_block_size: 256            # Schur: 构造 Schur 补时的列分块大小

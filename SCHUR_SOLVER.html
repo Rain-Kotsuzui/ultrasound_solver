@@ -313,6 +313,9 @@ left child | separator | right child
 
   <p>这保证后续伴随法梯度仍然有效。</p>
 
+  <h2>生产默认路径</h2>
+
+  <p>自研 Schur 求解器保留为可选验证后端。当前 <code>108^3</code> 生产配置使用精确边界静态凝聚和 cuDSS 复对称分解，以避免顶层显式 dense separator。该路径仍是严格直接法，详细推导和实测数据见 <a href="SOLVER_ARCHITECTURE.html">SOLVER_ARCHITECTURE.html</a>。</p>
 
   <h2>当前高性能路径</h2>
 
