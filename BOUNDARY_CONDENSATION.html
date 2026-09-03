@@ -1,0 +1,572 @@
+<div id="condensation-doc">
+  <style>
+    #condensation-doc {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 28px 34px 64px;
+      color: #1f2933;
+      background: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.66;
+    }
+
+    #condensation-doc h1 {
+      margin: 0 0 18px;
+      font-size: 30px;
+      line-height: 1.25;
+    }
+
+    #condensation-doc h2 {
+      margin-top: 34px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #d8dee4;
+      font-size: 22px;
+    }
+
+    #condensation-doc h3 {
+      margin-top: 25px;
+      font-size: 18px;
+    }
+
+    #condensation-doc code {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: #f3f4f6;
+      font-family: Consolas, "SFMono-Regular", monospace;
+      font-size: 0.94em;
+    }
+
+    #condensation-doc pre {
+      padding: 14px 16px;
+      overflow: auto;
+      border-radius: 6px;
+      background: #f6f8fa;
+    }
+
+    #condensation-doc pre code {
+      padding: 0;
+      background: transparent;
+    }
+
+    #condensation-doc table {
+      width: 100%;
+      margin: 14px 0 20px;
+      border-collapse: collapse;
+    }
+
+    #condensation-doc th,
+    #condensation-doc td {
+      padding: 8px 10px;
+      border: 1px solid #d8dee4;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    #condensation-doc th {
+      background: #f6f8fa;
+    }
+
+    #condensation-doc .note {
+      padding: 10px 14px;
+      border-left: 4px solid #2563eb;
+      background: #eff6ff;
+    }
+
+    #condensation-doc .warn {
+      padding: 10px 14px;
+      border-left: 4px solid #b45309;
+      background: #fff7ed;
+    }
+  </style>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [["\\(", "\\)"]],
+        displayMath: [["\\[", "\\]"]]
+      },
+      svg: {
+        fontCache: "global"
+      }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <h1>Boundary Condensation Direct Solver</h1>
+
+  <p class="note">完整声学模型与矩阵装配推导见 <a href="ACOUSTIC_PHYSICS_DERIVATION.html">ACOUSTIC_PHYSICS_DERIVATION.html</a>；纯相位训练见 <a href="PHASE_ONLY_TRAINING.html">PHASE_ONLY_TRAINING.html</a>；三种求解后端见 <a href="SOLVER_ARCHITECTURE.html">SOLVER_ARCHITECTURE.html</a>。</p>
+
+  <h2>目标与结论</h2>
+
+  <p>当前离散系统是复数稀疏线性方程：</p>
+
+  \[
+  A u = b
+  \]
+
+  <p>矩阵中的内部点和 reflecting 边界使用对称的变参数 7 点 stencil，但换能器 Dirichlet 单位行和 Open Sommerfeld 单边行破坏了整体矩阵的复对称结构。边界凝聚方法先对这些边界未知量做精确块高斯消元，再对剩余复对称系统执行 cuDSS 直接分解。</p>
+
+  <p>该方法具有以下性质：</p>
+
+  <ul>
+    <li>不改变原始 PDE、材料参数、障碍物或边界条件。</li>
+    <li>返回原始系统全部网格点的完整复声场。</li>
+    <li>不使用低秩压缩、混合精度或迭代近似。</li>
+    <li>前向和伴随复用同一份大型复对称因子。</li>
+  </ul>
+
+  <h2>自由度分块</h2>
+
+  <p>将全部自由度分成两个集合：</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>集合</th>
+        <th>包含的网格点</th>
+        <th>作用</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>\(R\)</td>
+        <td>内部点与 reflecting 边界点</td>
+        <td>保留并交给大型稀疏直接求解器</td>
+      </tr>
+      <tr>
+        <td>\(E\)</td>
+        <td>换能器 Dirichlet 点与 Open 边界点</td>
+        <td>在分解前精确消去，求解后回代恢复</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>按 \((R,E)\) 重排后，原始系统写为：</p>
+
+  \[
+  \begin{bmatrix}
+  A_{RR} & A_{RE} \\
+  A_{ER} & A_{EE}
+  \end{bmatrix}
+  \begin{bmatrix}
+  u_R \\
+  u_E
+  \end{bmatrix}
+  =
+  \begin{bmatrix}
+  b_R \\
+  b_E
+  \end{bmatrix}
+  \]
+
+  <h2>边界方程的局部结构</h2>
+
+  <h3>Dirichlet 换能器点</h3>
+
+  <p>第 \(r\) 个换能器覆盖的边界点满足：</p>
+
+  \[
+  u_e = A_r e^{i\phi_r}
+  \]
+
+  <p>对应矩阵行只有一个对角元素：</p>
+
+  \[
+  A_{e,e}=1,
+  \qquad
+  b_e=A_r e^{i\phi_r}
+  \]
+
+  <p>因此该变量是已知量，消元只会改变相邻保留方程的右端。</p>
+
+  <h3>Open 边界点</h3>
+
+  <p>每个 Open 点使用一阶 Sommerfeld 方程。以边界点 \(e\) 和它唯一的向内邻居 \(q\) 为例：</p>
+
+  \[
+  \left(\frac{1}{h}-ik_0\right)u_e
+  \left(-\frac{1}{h}\right)u_q
+  =
+  0
+  \]
+
+  <p>记：</p>
+
+  \[
+  d_e=A_{e,e},
+  \qquad
+  c_e=A_{e,q}
+  \]
+
+  <p>则：</p>
+
+  \[
+  u_e
+  =
+  -\frac{c_e}{d_e}u_q
+  +
+  \frac{b_e}{d_e}
+  \]
+
+  <p>当前 Open 边界的 \(b_e=0\)，但实现保留了一般右端形式，以便同一分解支持任意前向或伴随 RHS。</p>
+
+  <h3>边和角上的依赖链</h3>
+
+  <p>在棱边或角点，向内邻居仍可能属于 \(E\)。设：</p>
+
+  \[
+  u_e=\gamma_e u_q+\delta_e
+  \]
+
+  <p>如果 \(q\) 也已表示为：</p>
+
+  \[
+  u_q=\gamma_q u_r+\delta_q
+  \]
+
+  <p>则直接复合得到：</p>
+
+  \[
+  u_e
+  =
+  \gamma_e\gamma_q u_r
+  +
+  \gamma_e\delta_q+\delta_e
+  \]
+
+  <p>代码沿依赖链递归解析，并检测循环。每个边界行最多依赖一个向内邻居，所以齐次传递矩阵每行最多只有一个非零元，不会生成稠密边界逆矩阵。</p>
+
+  <h2>Schur 补与稀疏传递矩阵</h2>
+
+  <p>由第二个块方程：</p>
+
+  \[
+  A_{ER}u_R+A_{EE}u_E=b_E
+  \]
+
+  <p>得到：</p>
+
+  \[
+  u_E
+  =
+  A_{EE}^{-1}b_E
+  -
+  A_{EE}^{-1}A_{ER}u_R
+  \]
+
+  <p>定义边界齐次传递矩阵：</p>
+
+  \[
+  T=-A_{EE}^{-1}A_{ER}
+  \]
+
+  <p>以及边界特解：</p>
+
+  \[
+  c_E=A_{EE}^{-1}b_E
+  \]
+
+  <p>于是：</p>
+
+  \[
+  u_E=c_E+Tu_R
+  \]
+
+  <p>代入第一个块方程：</p>
+
+  \[
+  A_{RR}u_R+A_{RE}u_E=b_R
+  \]
+
+  <p>得到约化系统：</p>
+
+  \[
+  S u_R=\widehat b_R
+  \]
+
+  \[
+  S
+  =
+  A_{RR}+A_{RE}T
+  =
+  A_{RR}-A_{RE}A_{EE}^{-1}A_{ER}
+  \]
+
+  \[
+  \widehat b_R
+  =
+  b_R-A_{RE}A_{EE}^{-1}b_E
+  \]
+
+  <p>这里的 \(S\) 是关于物理边界自由度的一次 Schur 补。它不是旧式的递归网格分区求解器，也不会递归形成二维 dense separator。</p>
+
+  <h2>严格等价性的块分解证明</h2>
+
+  <p>原矩阵可以写成精确块分解：</p>
+
+  \[
+  A
+  =
+  \begin{bmatrix}
+  I & A_{RE}A_{EE}^{-1} \\
+  0 & I
+  \end{bmatrix}
+  \begin{bmatrix}
+  S & 0 \\
+  A_{ER} & A_{EE}
+  \end{bmatrix}
+  \]
+
+  <p>展开右侧的左上块：</p>
+
+  \[
+  S+A_{RE}A_{EE}^{-1}A_{ER}
+  =
+  A_{RR}
+  \]
+
+  <p>其余三个块分别为 \(A_{RE}\)、\(A_{ER}\) 和 \(A_{EE}\)，因此该分解与原矩阵完全一致。边界凝聚只是改变消元顺序，不改变方程或解。</p>
+
+  <h2>复对称结构的来源</h2>
+
+  <p>保留的内部与 reflecting stencil 使用相同的面系数：</p>
+
+  \[
+  a_{P,Q}
+  =
+  a_{Q,P}
+  =
+  \frac{1}{h^2}
+  \frac{2}{\rho_P+\rho_Q}
+  \]
+
+  <p>因此 \(A_{RR}\) 是复对称矩阵。对于普通面上的单个 Open 点，其消元只向相邻内部点的对角线加入：</p>
+
+  \[
+  A_{q,e}
+  \left(
+  -\frac{A_{e,q}}{A_{e,e}}
+  \right)
+  \]
+
+  <p>Dirichlet 消元只更新右端。结合当前边与角依赖结构，最终约化矩阵满足：</p>
+
+  \[
+  S=S^T
+  \]
+
+  <p>复对称不等于 Hermitian。一般情况下：</p>
+
+  \[
+  S^T=S,
+  \qquad
+  S^H\neq S
+  \]
+
+  <p>实现不会仅凭理论假设启用对称分解，而是显式计算：</p>
+
+  \[
+  \varepsilon_{\mathrm{sym}}
+  =
+  \frac{
+    \max |S-S^T|
+  }{
+    \max |S|
+  }
+  \]
+
+  <p>只有满足：</p>
+
+  \[
+  \varepsilon_{\mathrm{sym}}
+  \leq
+  10^{-12}
+  \]
+
+  <p>才把 \(S\) 的下三角交给 cuDSS。否则立即终止，避免错误地把一般矩阵当成对称矩阵求解。</p>
+
+  <h2>前向求解流程</h2>
+
+  <ol>
+    <li>从原矩阵提取 \(A_{RR}\)、\(A_{RE}\)、\(A_{ER}\) 和 \(A_{EE}\)。</li>
+    <li>沿边界依赖链构造稀疏 \(T=-A_{EE}^{-1}A_{ER}\)。</li>
+    <li>构造并检查 \(S=A_{RR}+A_{RE}T\)。</li>
+    <li>用 SciPy <code>splu</code> 分解较小的 \(A_{EE}\)。</li>
+    <li>用 cuDSS 分解 \(S\) 的下三角。</li>
+    <li>对新 RHS 计算 \(c_E=A_{EE}^{-1}b_E\)。</li>
+    <li>计算 \(\widehat b_R=b_R-A_{RE}c_E\)。</li>
+    <li>求解 \(S u_R=\widehat b_R\)。</li>
+    <li>回代 \(u_E=c_E+Tu_R\)。</li>
+    <li>按原始自由度顺序组装完整 \(u\)。</li>
+  </ol>
+
+  <h2>伴随求解与因子复用</h2>
+
+  <p>伴随系统为：</p>
+
+  \[
+  A^H\lambda=q
+  \]
+
+  <p>按相同分块消去 \(\lambda_E\)，约化伴随系统为：</p>
+
+  \[
+  S^H\lambda_R
+  =
+  q_R
+  -
+  A_{ER}^H
+  A_{EE}^{-H}
+  q_E
+  \]
+
+  <p>先计算：</p>
+
+  \[
+  d_E=A_{EE}^{-H}q_E
+  \]
+
+  \[
+  r_R=q_R-A_{ER}^Hd_E
+  \]
+
+  <p>由于 \(S^T=S\)：</p>
+
+  \[
+  S^H=\overline S
+  \]
+
+  <p>因此：</p>
+
+  \[
+  S^H\lambda_R=r_R
+  \]
+
+  <p>等价于：</p>
+
+  \[
+  S\overline{\lambda_R}
+  =
+  \overline{r_R}
+  \]
+
+  <p>可以通过以下三步复用前向因子：</p>
+
+  <ol>
+    <li>计算 \(\overline{r_R}\)。</li>
+    <li>使用前向因子求解 \(S z=\overline{r_R}\)。</li>
+    <li>令 \(\lambda_R=\overline z\)。</li>
+  </ol>
+
+  <p>最后恢复边界伴随变量：</p>
+
+  \[
+  \lambda_E
+  =
+  A_{EE}^{-H}
+  \left(
+  q_E-A_{RE}^H\lambda_R
+  \right)
+  \]
+
+  <p>因此不需要为 \(A^H\) 或 \(S^H\) 再保存一份大型分解因子。</p>
+
+  <h2>显存与性能结果</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>指标</th>
+        <th>一般非对称 LU</th>
+        <th>边界凝聚复对称 LU</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>\(108^3\) 原始自由度</td>
+        <td>1,259,712</td>
+        <td>1,259,712</td>
+      </tr>
+      <tr>
+        <td>交给大型分解器的自由度</td>
+        <td>1,259,712</td>
+        <td>1,194,988</td>
+      </tr>
+      <tr>
+        <td>消去边界自由度</td>
+        <td>0</td>
+        <td>64,724</td>
+      </tr>
+      <tr>
+        <td>HMM 最低 GPU 显存</td>
+        <td>约 9.91 GiB</td>
+        <td>约 5.46 GiB</td>
+      </tr>
+      <tr>
+        <td>主存因子估算</td>
+        <td>约 37.67 GiB</td>
+        <td>约 18.63 GiB</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>8 GiB RTX 4070 Laptop GPU 上的 \(108^3\) 实测结果：</p>
+
+  <ul>
+    <li>首次完整前向约 427.33 秒。</li>
+    <li>复用因子后的相位前向约 14.10 秒。</li>
+    <li>复用同一因子的伴随约 8.15 秒。</li>
+    <li>前向相对残差约 \(2.69\times10^{-6}\)。</li>
+    <li>伴随相对残差约 \(3.36\times10^{-12}\)。</li>
+  </ul>
+
+  <h2>适用条件与失败保护</h2>
+
+  <ul>
+    <li>Dirichlet 行必须是单对角单位行。</li>
+    <li>Open 行必须只有自身和一个向内邻居两个非零元素。</li>
+    <li>边界依赖图必须无环。</li>
+    <li>约化矩阵必须通过复对称误差检查。</li>
+    <li>材料、障碍物和网格可以变化，但变化后必须重新装配和分解。</li>
+    <li>只有换能器相位变化时，矩阵和因子可以直接复用。</li>
+  </ul>
+
+  <p class="warn">该方法利用的是当前离散边界行的特殊结构。如果未来把 Open 边界改成高阶、多邻居或 PML 离散，必须重新推导凝聚结构，不能跳过对称性检查。</p>
+
+  <h2>代码对应关系</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>数学步骤</th>
+        <th>代码位置</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>识别 \(R/E\) 自由度</td>
+        <td><code>BoundaryCondensedDirectSolver._eliminated_mask()</code></td>
+      </tr>
+      <tr>
+        <td>解析边界依赖链并构造 \(T\)</td>
+        <td><code>BoundaryCondensedDirectSolver._build_condensed_system()</code></td>
+      </tr>
+      <tr>
+        <td>构造与检查 \(S\)</td>
+        <td><code>BoundaryCondensedDirectSolver._build_condensed_system()</code></td>
+      </tr>
+      <tr>
+        <td>复对称 HMM 分解</td>
+        <td><code>CuDSSHybridSymmetricSolver</code></td>
+      </tr>
+      <tr>
+        <td>前向边界回代</td>
+        <td><code>BoundaryCondensedDirectSolver.solve()</code></td>
+      </tr>
+      <tr>
+        <td>同因子伴随</td>
+        <td><code>BoundaryCondensedDirectSolver.solve_adjoint()</code></td>
+      </tr>
+    </tbody>
+  </table>
+</div>

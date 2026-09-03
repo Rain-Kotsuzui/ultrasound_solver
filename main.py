@@ -97,7 +97,28 @@ def main():
             show_pyvista_scene(out_file)
 
     elif cfg.mode == "inverse":
-        print("[Main] Inverse optimization mode selected.")
+        training_mode = cfg.training.mode.lower()
+        if training_mode == "phase_only":
+            print("[Main] Building/loading phase-only response basis...")
+            basis = solver.build_phase_response_basis()
+            if cfg.training.load_basis_to_gpu:
+                basis.to_gpu()
+            location = "GPU" if basis.basis_gpu is not None else "CPU"
+            print(
+                "[Main] Phase-only training forward model ready | "
+                f"shape={basis.shape} | storage={location}"
+            )
+        elif training_mode == "obstacle_distribution":
+            print(
+                "[Main] Obstacle-distribution training selected. "
+                "The matrix changes with the obstacle field, so the "
+                "phase response basis is intentionally disabled."
+            )
+        else:
+            raise ValueError(
+                "training.mode must be 'phase_only' or "
+                "'obstacle_distribution'"
+            )
 
 
 if __name__ == "__main__":

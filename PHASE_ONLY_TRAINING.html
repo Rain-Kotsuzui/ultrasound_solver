@@ -1,0 +1,442 @@
+<div id="phase-training-doc">
+  <style>
+    #phase-training-doc {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 28px 34px 64px;
+      color: #1f2933;
+      background: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.66;
+    }
+
+    #phase-training-doc h1 {
+      margin: 0 0 18px;
+      font-size: 30px;
+      line-height: 1.25;
+    }
+
+    #phase-training-doc h2 {
+      margin-top: 34px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #d8dee4;
+      font-size: 22px;
+    }
+
+    #phase-training-doc code {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: #f3f4f6;
+      font-family: Consolas, "SFMono-Regular", monospace;
+      font-size: 0.94em;
+    }
+
+    #phase-training-doc pre {
+      padding: 14px 16px;
+      overflow: auto;
+      border-radius: 6px;
+      background: #f6f8fa;
+    }
+
+    #phase-training-doc pre code {
+      padding: 0;
+      background: transparent;
+    }
+
+    #phase-training-doc table {
+      width: 100%;
+      margin: 14px 0 20px;
+      border-collapse: collapse;
+    }
+
+    #phase-training-doc th,
+    #phase-training-doc td {
+      padding: 8px 10px;
+      border: 1px solid #d8dee4;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    #phase-training-doc th {
+      background: #f6f8fa;
+    }
+
+    #phase-training-doc .note {
+      padding: 10px 14px;
+      border-left: 4px solid #2563eb;
+      background: #eff6ff;
+    }
+
+    #phase-training-doc .warn {
+      padding: 10px 14px;
+      border-left: 4px solid #b45309;
+      background: #fff7ed;
+    }
+  </style>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [["\\(", "\\)"]],
+        displayMath: [["\\[", "\\]"]]
+      },
+      svg: {
+        fontCache: "global"
+      }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <h1>Phase-Only Training with a Full-Field Response Basis</h1>
+
+  <p class="note">该训练模式不增加第四种线性求解器。响应基由现有 <code>cudss_hybrid_direct</code> 后端离线构建，随后作为相位优化的精确缓存层。物理模型见 <a href="ACOUSTIC_PHYSICS_DERIVATION.html">ACOUSTIC_PHYSICS_DERIVATION.html</a>。</p>
+
+  <h2>两类逆向训练</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>training.mode</th>
+        <th>优化变量</th>
+        <th>矩阵是否固定</th>
+        <th>是否可使用响应基</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>phase_only</code></td>
+        <td>81 个换能器相位</td>
+        <td>固定</td>
+        <td>可以，且数学上严格</td>
+      </tr>
+      <tr>
+        <td><code>obstacle_distribution</code></td>
+        <td>障碍物几何或材料分布</td>
+        <td>每轮变化</td>
+        <td>不可以，必须重新装配并求解 PDE</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>相位相关右端</h2>
+
+  <p>固定网格、材料、障碍物、频率、边界条件和阵元位置后，Helmholtz 矩阵 \(A\) 不依赖相位：</p>
+
+  \[
+  A u(\phi)=b(\phi)
+  \]
+
+  <p>设共有 \(M\) 个换能器。定义：</p>
+
+  \[
+  w(\phi)
+  =
+  \begin{bmatrix}
+  e^{i\phi_1} \\
+  e^{i\phi_2} \\
+  \vdots \\
+  e^{i\phi_M}
+  \end{bmatrix}
+  \]
+
+  <p>定义源矩阵 \(B\in\mathbb{C}^{N\times M}\)。第 \(r\) 列只在第 \(r\) 个换能器覆盖的 Dirichlet 网格点上取配置幅值 \(A_r\)，其他位置为零。于是：</p>
+
+  \[
+  b(\phi)=Bw(\phi)
+  \]
+
+  <h2>全场响应基</h2>
+
+  <p>将源矩阵的每一列通过同一个 Helmholtz 系统求解：</p>
+
+  \[
+  G=A^{-1}B
+  \]
+
+  <p>其中：</p>
+
+  \[
+  G
+  =
+  \begin{bmatrix}
+  g_1 & g_2 & \cdots & g_M
+  \end{bmatrix}
+  \]
+
+  <p>\(g_r\) 是第 \(r\) 个阵元独立激励时，在完整网格、完整障碍物和全部边界条件下产生的全空间复声场。</p>
+
+  <p>利用线性性：</p>
+
+  \[
+  u(\phi)
+  =
+  A^{-1}Bw(\phi)
+  =
+  Gw(\phi)
+  \]
+
+  <p>因此在线阶段不再求解 PDE，只执行一次复数矩阵向量乘法。</p>
+
+  <h2>为什么仍是完整精确声场</h2>
+
+  <p>响应基不是自由空间传播近似，也不是只保留目标点。矩阵 \(G\) 的行数等于全部体素自由度：</p>
+
+  \[
+  G\in\mathbb{C}^{N_{\mathrm{voxel}}\times M}
+  \]
+
+  <p>每列通过当前离散系统直接求得，所以自动包含：</p>
+
+  <ul>
+    <li>变密度与变声速材料。</li>
+    <li>障碍物散射。</li>
+    <li>Reflecting 边界。</li>
+    <li>Open Sommerfeld 边界。</li>
+    <li>换能器有限圆盘覆盖。</li>
+  </ul>
+
+  <p>其误差只来自构建 \(G\) 时的直接求解残差和浮点误差，不额外引入物理近似。</p>
+
+  <h2>相位梯度与 VJP</h2>
+
+  <p>对于第 \(r\) 个相位：</p>
+
+  \[
+  \frac{\partial w_r}{\partial\phi_r}
+  =
+  i e^{i\phi_r}
+  \]
+
+  <p>因此：</p>
+
+  \[
+  \frac{\partial u}{\partial\phi_r}
+  =
+  i g_r e^{i\phi_r}
+  \]
+
+  <p>设实值损失 \(L\) 对复声场的 cotangent 为 \(c\)，采用：</p>
+
+  \[
+  dL
+  =
+  \operatorname{Re}
+  \left(
+  c^Hdu
+  \right)
+  \]
+
+  <p>则：</p>
+
+  \[
+  \frac{\partial L}{\partial\phi_r}
+  =
+  \operatorname{Re}
+  \left[
+  \left(
+  c^Hg_r
+  \right)
+  i e^{i\phi_r}
+  \right]
+  \]
+
+  <p>先计算一次：</p>
+
+  \[
+  z=G^Hc
+  \]
+
+  <p>即可得到全部相位梯度：</p>
+
+  \[
+  \nabla_\phi L
+  =
+  \operatorname{Re}
+  \left[
+  \overline z
+  \odot
+  \left(
+  i e^{i\phi}
+  \right)
+  \right]
+  \]
+
+  <p><code>PhaseResponseBasis.phase_vjp()</code> 实现该解析 VJP，不需要在线 PDE 伴随求解。</p>
+
+  <h2>离线构建流程</h2>
+
+  <ol>
+    <li>装配一次固定矩阵 \(A\)。</li>
+    <li>执行一次边界凝聚和 cuDSS factorization。</li>
+    <li>按阵元批次构造 \(B\) 的列。</li>
+    <li>复用同一因子求解每批 RHS。</li>
+    <li>把结果列写入磁盘 <code>.npy</code> memmap。</li>
+    <li>每批完成后更新 JSON 元数据中的完成列数。</li>
+    <li>全部完成后可释放 cuDSS 因子。</li>
+  </ol>
+
+  <p>当前 cuDSS HMM wrapper 对矩阵 RHS 逐列回代，因此只建立一次因子，但仍执行 \(M\) 次三角回代。</p>
+
+  <h2>断点恢复与缓存一致性</h2>
+
+  <p>响应基文件旁保存：</p>
+
+  <pre><code>phase_response_basis.npy
+phase_response_basis.npy.json</code></pre>
+
+  <p>元数据包含：</p>
+
+  <ul>
+    <li>格式版本。</li>
+    <li>矩阵形状。</li>
+    <li>固定 <code>complex128</code> 数据类型。</li>
+    <li>已经完成的阵元列数。</li>
+    <li>物理场景 SHA-256 指纹。</li>
+  </ul>
+
+  <p>每完成一个 RHS 批次，先刷新 memmap，再原子替换元数据文件。进程中断后，从最后完成的列继续构建。</p>
+
+  <p>场景指纹覆盖：</p>
+
+  <ul>
+    <li>背景物理参数。</li>
+    <li>换能器规格和幅值。</li>
+    <li>网格与物理尺寸。</li>
+    <li>边界条件。</li>
+    <li>障碍物配置。</li>
+  </ul>
+
+  <p>指纹不匹配时拒绝加载，避免把旧场景的响应基用于新矩阵。</p>
+
+  <h2>内存与计算量</h2>
+
+  <p>对于当前 \(108^3\) 网格和 \(9\times9=81\) 个阵元：</p>
+
+  \[
+  N=108^3=1{,}259{,}712
+  \]
+
+  \[
+  M=81
+  \]
+
+  <p><code>complex128</code> 响应基大小为：</p>
+
+  \[
+  NM\times16
+  =
+  1{,}632{,}586{,}752\ \mathrm{bytes}
+  \approx
+  1.52\ \mathrm{GiB}
+  \]
+
+  <p>完整复声场本身约为：</p>
+
+  \[
+  N\times16
+  \approx
+  19.2\ \mathrm{MiB}
+  \]
+
+  <p>构建完成并释放直接分解因子后，在线 GPU 主要保存约 1.52 GiB 的 \(G\)，显著低于 HMM 求解期间的因子与工作区占用。</p>
+
+  <h2>CPU 与 GPU 在线路径</h2>
+
+  <h3>GPU 常驻</h3>
+
+  \[
+  u=G_{\mathrm{GPU}}w
+  \]
+
+  \[
+  z=G_{\mathrm{GPU}}^Hc
+  \]
+
+  <p>适用于频繁迭代。加载前会检查空闲显存，并预留 256 MiB 安全空间。</p>
+
+  <h3>CPU memmap</h3>
+
+  <p>如果不加载到 GPU，则按体素块执行：</p>
+
+  \[
+  u_{s:e}
+  =
+  G_{s:e,:}w
+  \]
+
+  <p>VJP 同样按块累加：</p>
+
+  \[
+  z
+  =
+  \sum_{\mathrm{chunk}}
+  G_{\mathrm{chunk}}^H
+  c_{\mathrm{chunk}}
+  \]
+
+  <p>这种方式显存要求更低，但会受磁盘和主存带宽限制。</p>
+
+  <h2>配置</h2>
+
+  <pre><code>mode: "inverse"
+
+training:
+  mode: "phase_only"
+  phase_basis_file: "phase_response_basis.npy"
+  phase_basis_batch_size: 8
+  voxel_chunk_size: 262144
+  load_basis_to_gpu: true
+  release_factor_after_basis: true
+
+solver:
+  backend: "cudss_hybrid_direct"</code></pre>
+
+  <p><code>phase_only</code> 强制要求高性能持久直接后端，因为响应基构建必须复用同一份精确因子。</p>
+
+  <h2>Python 接口</h2>
+
+  <pre><code>solver = HelmholtzDirectSolver(cfg)
+basis = solver.build_phase_response_basis()
+
+# 可选：将约 1.52 GiB 响应基加载到 GPU
+basis.to_gpu()
+
+field = basis.field(phases)
+phase_gradient = basis.phase_vjp(field_cotangent, phases)</code></pre>
+
+  <h2>障碍物分布训练</h2>
+
+  <p>当优化变量包含障碍物分布时：</p>
+
+  \[
+  \rho=\rho(\theta),
+  \qquad
+  c=c(\theta)
+  \]
+
+  <p>因此：</p>
+
+  \[
+  A=A(\theta)
+  \]
+
+  <p>固定响应基不再成立：</p>
+
+  \[
+  A(\theta)^{-1}B
+  \neq
+  A(\theta_0)^{-1}B
+  \]
+
+  <p><code>training.mode: "obstacle_distribution"</code> 因而明确禁用相位响应基。未来该模式需要：</p>
+
+  <ol>
+    <li>根据障碍物参数重新生成 \(\rho(\theta)\) 和 \(c(\theta)\)。</li>
+    <li>重新装配 \(A(\theta)\)。</li>
+    <li>执行当前场景的前向求解。</li>
+    <li>执行 PDE 伴随求解。</li>
+    <li>通过 \(\partial A/\partial\theta\) 计算障碍物梯度。</li>
+  </ol>
+
+  <p class="warn">相位响应基只能跨相位迭代复用，不能跨障碍物、材料、频率、网格、边界条件或阵元几何变化复用。</p>
+</div>

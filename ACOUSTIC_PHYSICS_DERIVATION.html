@@ -1,0 +1,1107 @@
+<div id="physics-doc">
+  <style>
+    #physics-doc {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 28px 36px 68px;
+      color: #1f2933;
+      background: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.68;
+    }
+
+    #physics-doc h1 {
+      margin: 0 0 18px;
+      font-size: 30px;
+      line-height: 1.25;
+    }
+
+    #physics-doc h2 {
+      margin-top: 36px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #d8dee4;
+      font-size: 22px;
+    }
+
+    #physics-doc h3 {
+      margin-top: 25px;
+      font-size: 18px;
+    }
+
+    #physics-doc code {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: #f3f4f6;
+      font-family: Consolas, "SFMono-Regular", monospace;
+      font-size: 0.94em;
+    }
+
+    #physics-doc pre {
+      padding: 14px 16px;
+      overflow: auto;
+      border-radius: 6px;
+      background: #f6f8fa;
+    }
+
+    #physics-doc pre code {
+      padding: 0;
+      background: transparent;
+    }
+
+    #physics-doc table {
+      width: 100%;
+      margin: 14px 0 22px;
+      border-collapse: collapse;
+    }
+
+    #physics-doc th,
+    #physics-doc td {
+      padding: 8px 10px;
+      border: 1px solid #d8dee4;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    #physics-doc th {
+      background: #f6f8fa;
+    }
+
+    #physics-doc .note {
+      padding: 10px 14px;
+      border-left: 4px solid #2563eb;
+      background: #eff6ff;
+    }
+
+    #physics-doc .warn {
+      padding: 10px 14px;
+      border-left: 4px solid #b45309;
+      background: #fff7ed;
+    }
+  </style>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [["\\(", "\\)"]],
+        displayMath: [["\\[", "\\]"]]
+      },
+      svg: {
+        fontCache: "global"
+      }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <h1>From Compressible Flow to the Discrete Helmholtz Matrix</h1>
+
+  <p class="note">边界凝聚与高性能直接法见 <a href="BOUNDARY_CONDENSATION.html">BOUNDARY_CONDENSATION.html</a>；纯相位训练见 <a href="PHASE_ONLY_TRAINING.html">PHASE_ONLY_TRAINING.html</a>；三种求解后端见 <a href="SOLVER_ARCHITECTURE.html">SOLVER_ARCHITECTURE.html</a>；精简离散对照见 <a href="HELMHOLTZ_DISCRETIZATION.html">HELMHOLTZ_DISCRETIZATION.html</a>。</p>
+
+  <h2>文档范围</h2>
+
+  <p>本文从可压缩流体力学出发，推导当前代码实际求解的频域声压方程，说明障碍物材料模型、换能器激励、Reflecting/Open 边界条件、三维 7 点离散，以及最终稀疏矩阵 \(A\) 和右端 \(b\) 的组装过程。</p>
+
+  <p>当前模型的主要假设为：</p>
+
+  <ul>
+    <li>流体无平均流动。</li>
+    <li>声学扰动足够小，可以线性化。</li>
+    <li>介质无粘、无热传导，传播过程近似绝热。</li>
+    <li>材料各向同性，只用密度 \(\rho\) 和纵向声速 \(c\) 描述。</li>
+    <li>只求单一角频率 \(\omega\) 下的稳态复声压。</li>
+    <li>不包含非线性声学、粘性衰减、热耗散和平均流对流效应。</li>
+  </ul>
+
+  <p class="warn">代码中的“障碍物”仍使用标量流体声学材料模型。它可以表示密度和纵波声速不同的介质区域，但不求解固体剪切波、弹性位移或流固耦合。</p>
+
+  <h2>可压缩流体的原始方程</h2>
+
+  <h3>质量守恒</h3>
+
+  <p>可压缩流体的连续性方程为：</p>
+
+  \[
+  \frac{\partial \rho}{\partial t}
+  +
+  \nabla\cdot(\rho\mathbf{v})
+  =
+  0
+  \]
+
+  <p>其中 \(\rho(\mathbf{x},t)\) 是密度，\(\mathbf{v}(\mathbf{x},t)\) 是流体速度。</p>
+
+  <h3>动量守恒</h3>
+
+  <p>一般可压缩 Navier-Stokes 动量方程为：</p>
+
+  \[
+  \rho
+  \left(
+  \frac{\partial\mathbf{v}}{\partial t}
+  +
+  \mathbf{v}\cdot\nabla\mathbf{v}
+  \right)
+  =
+  -\nabla p
+  +
+  \nabla\cdot\boldsymbol{\tau}
+  +
+  \rho\mathbf{f}
+  \]
+
+  <p>其中 \(p\) 是压力，\(\boldsymbol{\tau}\) 是粘性应力张量，\(\mathbf{f}\) 是单位质量体力。</p>
+
+  <h3>热力学闭合关系</h3>
+
+  <p>质量和动量方程还需要能量或熵方程以及状态方程闭合。一般熵平衡可以写成：</p>
+
+  \[
+  \rho T
+  \frac{Ds}{Dt}
+  =
+  \boldsymbol{\tau}:\nabla\mathbf{v}
+  -
+  \nabla\cdot\mathbf{q}
+  +
+  \rho r
+  \]
+
+  <p>其中 \(T\) 是温度，\(\mathbf{q}\) 是热流，\(r\) 是单位质量热源。当前模型忽略粘性耗散、热传导和外部热源，因此：</p>
+
+  \[
+  \frac{Ds}{Dt}=0
+  \]
+
+  <p>再使用状态方程。对于绝热小扰动：</p>
+
+  \[
+  p=p(\rho,s)
+  \]
+
+  \[
+  c^2
+  =
+  \left(
+  \frac{\partial p}{\partial\rho}
+  \right)_s
+  \]
+
+  <p>这里 \(s\) 是比熵，\(c\) 是局部绝热声速。体积模量为：</p>
+
+  \[
+  K=\rho c^2
+  \]
+
+  <h2>声学线性化</h2>
+
+  <p>在静止平衡态附近写成背景量与小扰动之和：</p>
+
+  \[
+  p_{\mathrm{total}}=p_0+p
+  \]
+
+  \[
+  \rho_{\mathrm{total}}=\rho_0+\rho'
+  \]
+
+  \[
+  \mathbf{v}_{\mathrm{total}}=\mathbf{0}+\mathbf{v}
+  \]
+
+  <p>其中 \(p\)、\(\rho'\) 和 \(\mathbf{v}\) 都是一阶小量。忽略小量乘积、粘性、热传导和外部体力后，得到线性声学一阶系统。</p>
+
+  <h3>线性动量方程</h3>
+
+  \[
+  \rho(\mathbf{x})
+  \frac{\partial\mathbf{v}}{\partial t}
+  =
+  -\nabla p
+  \]
+
+  <h3>线性体积压缩方程</h3>
+
+  \[
+  \frac{1}{K(\mathbf{x})}
+  \frac{\partial p}{\partial t}
+  =
+  -\nabla\cdot\mathbf{v}
+  \]
+
+  <p>利用 \(K=\rho c^2\)：</p>
+
+  \[
+  \frac{1}{\rho(\mathbf{x})c(\mathbf{x})^2}
+  \frac{\partial p}{\partial t}
+  =
+  -\nabla\cdot\mathbf{v}
+  \]
+
+  <p>这两条一阶方程也是当前变密度压力波动方程的物理起点。</p>
+
+  <h2>压力波动方程</h2>
+
+  <p>对压缩方程再做一次时间微分：</p>
+
+  \[
+  \frac{1}{\rho c^2}
+  \frac{\partial^2 p}{\partial t^2}
+  =
+  -\nabla\cdot
+  \frac{\partial\mathbf{v}}{\partial t}
+  \]
+
+  <p>由动量方程：</p>
+
+  \[
+  \frac{\partial\mathbf{v}}{\partial t}
+  =
+  -\frac{1}{\rho}\nabla p
+  \]
+
+  <p>代入得到：</p>
+
+  \[
+  \frac{1}{\rho c^2}
+  \frac{\partial^2 p}{\partial t^2}
+  =
+  \nabla\cdot
+  \left(
+  \frac{1}{\rho}\nabla p
+  \right)
+  \]
+
+  <p>整理为当前时域变参数压力波动方程：</p>
+
+  \[
+  \nabla\cdot
+  \left(
+  \frac{1}{\rho(\mathbf{x})}\nabla p
+  \right)
+  -
+  \frac{1}{\rho(\mathbf{x})c(\mathbf{x})^2}
+  \frac{\partial^2 p}{\partial t^2}
+  =
+  0
+  \]
+
+  <h2>频域 Helmholtz 方程</h2>
+
+  <p>代码采用时间因子：</p>
+
+  \[
+  p(\mathbf{x},t)
+  =
+  \operatorname{Re}
+  \left[
+  u(\mathbf{x})e^{-i\omega t}
+  \right]
+  \]
+
+  <p>因此：</p>
+
+  \[
+  \frac{\partial^2 p}{\partial t^2}
+  \longrightarrow
+  -\omega^2 u
+  \]
+
+  <p>代入时域方程，得到当前代码装配的变参数 Helmholtz 方程：</p>
+
+  \[
+  \boxed{
+  \nabla\cdot
+  \left(
+  \frac{1}{\rho(\mathbf{x})}\nabla u(\mathbf{x})
+  \right)
+  +
+  \frac{\omega^2}
+  {\rho(\mathbf{x})c(\mathbf{x})^2}
+  u(\mathbf{x})
+  =
+  0
+  }
+  \]
+
+  <p>背景波数为：</p>
+
+  \[
+  k_0=\frac{\omega}{c_0}
+  \]
+
+  <p>当前内部没有体声源，激励完全通过底面换能器 Dirichlet 边界进入右端。</p>
+
+  <h2>障碍物与空间材料场</h2>
+
+  <p>当前 Warp 实现使用球体有符号距离函数：</p>
+
+  \[
+  \phi(\mathbf{x})
+  =
+  \|\mathbf{x}-\mathbf{x}_c\|-R
+  \]
+
+  <p>球内 \(\phi&lt;0\)，球外 \(\phi&gt;0\)。为了避免材料参数在单个网格面上突变，使用宽度：</p>
+
+  \[
+  \varepsilon=1.2h
+  \]
+
+  <p>的平滑 Heaviside 函数：</p>
+
+  \[
+  H(\phi)
+  =
+  \begin{cases}
+  0,
+  & \phi&lt;-\varepsilon,\\
+  \frac{1}{2}
+  \left[
+  1+\frac{\phi}{\varepsilon}
+  +
+  \frac{1}{\pi}
+  \sin\left(
+  \frac{\pi\phi}{\varepsilon}
+  \right)
+  \right],
+  & |\phi|\leq\varepsilon,\\
+  1,
+  & \phi&gt;\varepsilon.
+  \end{cases}
+  \]
+
+  <p>密度和声速场为：</p>
+
+  \[
+  \rho(\mathbf{x})
+  =
+  \rho_{\mathrm{obs}}
+  +
+  \left(
+  \rho_0-\rho_{\mathrm{obs}}
+  \right)H(\phi)
+  \]
+
+  \[
+  c(\mathbf{x})
+  =
+  c_{\mathrm{obs}}
+  +
+  \left(
+  c_0-c_{\mathrm{obs}}
+  \right)H(\phi)
+  \]
+
+  <p>因此球内趋近障碍物材料，球外趋近背景流体，过渡层宽度与网格步长成比例。</p>
+
+  <p class="warn">当前 GPU 装配代码只读取配置中的第一个球形障碍物。若需要多个障碍物、任意 SDF 组合或真正固体弹性模型，需要扩展材料场生成内核。</p>
+
+  <h2>换能器阵列模型</h2>
+
+  <h3>阵元位置</h3>
+
+  <p>阵列位于底面 \(z=0\)。对于 \(n\times n\) 阵列、阵元间距 \(s\)，中心坐标为：</p>
+
+  \[
+  x_a
+  =
+  \frac{L_x}{2}
+  -
+  \frac{(n-1)s}{2}
+  +
+  a s
+  \]
+
+  \[
+  y_b
+  =
+  \frac{L_y}{2}
+  -
+  \frac{(n-1)s}{2}
+  +
+  b s
+  \]
+
+  \[
+  z_{a,b}=0
+  \]
+
+  <p>网格点落入半径 \(a_t=D/2\) 的圆盘时，被标记为对应阵元的 Dirichlet 点。</p>
+
+  <h3>SPL 到表面声压</h3>
+
+  <p>参考声压为：</p>
+
+  \[
+  p_{\mathrm{ref}}=20\ \mu\mathrm{Pa}
+  \]
+
+  <p>由声压级 \(L_p\) 得到标定位置的 RMS 声压：</p>
+
+  \[
+  p_{\mathrm{rms}}
+  =
+  p_{\mathrm{ref}}
+  10^{L_p/20}
+  \]
+
+  <p>峰值声压：</p>
+
+  \[
+  p_{\mathrm{peak}}
+  =
+  \sqrt{2}\,p_{\mathrm{rms}}
+  \]
+
+  <p>代码采用圆形活塞远场轴向近似：</p>
+
+  \[
+  p_{\mathrm{peak}}(r)
+  \approx
+  p_0
+  \frac{k_0 a_t^2}{2r}
+  \]
+
+  <p>反推出表面 Dirichlet 幅值：</p>
+
+  \[
+  p_0
+  =
+  p_{\mathrm{peak}}(r)
+  \frac{2r}{k_0a_t^2}
+  \]
+
+  <p>这里的活塞公式只用于幅值标定。进入 PDE 后，阵元被建模为指定复声压的 Dirichlet 圆盘。</p>
+
+  <h3>阵元相位</h3>
+
+  <p>第 \(r\) 个阵元的复边界值为：</p>
+
+  \[
+  u_r=p_{0,r}e^{i\phi_r}
+  \]
+
+  <p>单目标基准相位使用自由空间传播补偿：</p>
+
+  \[
+  \phi_r=-k_0d_r
+  \]
+
+  <p>多目标时先叠加时间反转权重：</p>
+
+  \[
+  U_r
+  =
+  \sum_m
+  \frac{1}{d_{r,m}}
+  e^{-ik_0d_{r,m}}
+  \]
+
+  \[
+  \phi_r=\arg(U_r)
+  \]
+
+  <h2>边界条件的物理推导</h2>
+
+  <h3>Reflecting 刚性边界</h3>
+
+  <p>刚性壁面不允许法向流速：</p>
+
+  \[
+  \mathbf{v}\cdot\mathbf{n}=0
+  \]
+
+  <p>频域动量方程为：</p>
+
+  \[
+  -i\omega\rho\mathbf{v}
+  =
+  -\nabla u
+  \]
+
+  <p>因此：</p>
+
+  \[
+  \mathbf{v}
+  =
+  \frac{1}{i\omega\rho}
+  \nabla u
+  \]
+
+  <p>刚性边界等价于零法向声压梯度：</p>
+
+  \[
+  \frac{1}{\rho}
+  \frac{\partial u}{\partial n}
+  =
+  0
+  \]
+
+  <p>代码通过不加入域外面通量实现这一自然 Neumann 条件。</p>
+
+  <h3>Open Sommerfeld 边界</h3>
+
+  <p>采用 \(e^{-i\omega t}\) 时间约定时，远场向外传播球面波近似为：</p>
+
+  \[
+  u(r)
+  \sim
+  \frac{e^{ik_0r}}{r}
+  \]
+
+  <p>其径向导数：</p>
+
+  \[
+  \frac{\partial u}{\partial r}
+  =
+  \left(
+  ik_0-\frac{1}{r}
+  \right)u
+  \]
+
+  <p>忽略远场 \(1/r\) 项得到一阶 Sommerfeld 条件：</p>
+
+  \[
+  \boxed{
+  \frac{\partial u}{\partial n}
+  -
+  ik_0u
+  =
+  0
+  }
+  \]
+
+  <p>当前实现始终使用背景波数 \(k_0=\omega/c_0\)。它是一阶局部吸收边界，不是无反射的 PML。</p>
+
+  <h3>换能器 Dirichlet 边界</h3>
+
+  <p>落入阵元圆盘的底面点直接指定复声压：</p>
+
+  \[
+  u=A_re^{i\phi_r}
+  \]
+
+  <p>该条件优先于底面的 reflecting 设置，因此底面由“阵元 Dirichlet 圆盘 + 其余刚性挡板”组成。</p>
+
+  <h2>均匀三维网格</h2>
+
+  <p>计算域为：</p>
+
+  \[
+  [0,L_x]\times[0,L_y]\times[0,L_z]
+  \]
+
+  <p>网格点数为 \((N_x,N_y,N_z)\)。代码要求各向同性步长：</p>
+
+  \[
+  h
+  =
+  \frac{L_x}{N_x-1}
+  =
+  \frac{L_y}{N_y-1}
+  =
+  \frac{L_z}{N_z-1}
+  \]
+
+  <p>网格坐标：</p>
+
+  \[
+  x_i=ih,
+  \qquad
+  y_j=jh,
+  \qquad
+  z_k=kh
+  \]
+
+  <p>三维编号按 Fortran 顺序展平：</p>
+
+  \[
+  P(i,j,k)
+  =
+  i+jN_x+kN_xN_y
+  \]
+
+  <p>因此 \(x\) 方向索引连续，完整自由度数为：</p>
+
+  \[
+  N=N_xN_yN_z
+  \]
+
+  <h2>变密度通量的离散化</h2>
+
+  <p>令：</p>
+
+  \[
+  a(\mathbf{x})=\frac{1}{\rho(\mathbf{x})}
+  \]
+
+  <p>方程的空间项为：</p>
+
+  \[
+  \nabla\cdot(a\nabla u)
+  \]
+
+  <p>以 \(x\) 方向为例，在控制体面 \(i+\frac{1}{2}\) 上近似：</p>
+
+  \[
+  \left.
+  a\frac{\partial u}{\partial x}
+  \right|_{i+\frac{1}{2}}
+  \approx
+  a_{i+\frac{1}{2}}
+  \frac{u_{i+1}-u_i}{h}
+  \]
+
+  <p>代码使用 \(a=1/\rho\) 的调和平均：</p>
+
+  \[
+  a_{P,Q}
+  =
+  \frac{2a_Pa_Q}{a_P+a_Q}
+  =
+  \frac{2}{\rho_P+\rho_Q}
+  \]
+
+  <p>所以任意存在的轴向邻居 \(Q\) 对应系数：</p>
+
+  \[
+  c_{P,Q}
+  =
+  \frac{1}{h^2}
+  \frac{2}{\rho_P+\rho_Q}
+  \]
+
+  <p>质量项为：</p>
+
+  \[
+  m_P
+  =
+  \frac{\omega^2}{\rho_Pc_P^2}
+  \]
+
+  <p>离散方程可写成通量形式：</p>
+
+  \[
+  \sum_{Q\in\mathcal{N}(P)}
+  c_{P,Q}
+  \left(
+  u_Q-u_P
+  \right)
+  +
+  m_Pu_P
+  =
+  0
+  \]
+
+  <p>展开后：</p>
+
+  \[
+  \left(
+  m_P
+  -
+  \sum_{Q\in\mathcal{N}(P)}
+  c_{P,Q}
+  \right)u_P
+  +
+  \sum_{Q\in\mathcal{N}(P)}
+  c_{P,Q}u_Q
+  =
+  0
+  \]
+
+  <p>对应矩阵条目：</p>
+
+  \[
+  A_{P,Q}=c_{P,Q}
+  \]
+
+  \[
+  A_{P,P}
+  =
+  m_P
+  -
+  \sum_{Q\in\mathcal{N}(P)}
+  c_{P,Q}
+  \]
+
+  \[
+  b_P=0
+  \]
+
+  <p>因为：</p>
+
+  \[
+  c_{P,Q}=c_{Q,P}
+  \]
+
+  <p>内部与 reflecting stencil 具有对称的邻接系数。</p>
+
+  <h2>Reflecting 边界的离散化</h2>
+
+  <p>若某个网格面位于 reflecting 边界，域外没有邻居。零法向通量意味着该面通量为零，因此代码：</p>
+
+  <ul>
+    <li>不添加域外邻居列。</li>
+    <li>不把该方向系数加入对角线通量和。</li>
+  </ul>
+
+  <p>例如在 \(i=0\) 的 \(-x\) reflecting 面：</p>
+
+  \[
+  F_{-\frac{1}{2}}=0
+  \]
+
+  <p>其余五个方向仍按普通通量离散。这是有限体积意义下的自然零通量实现。</p>
+
+  <h2>Open 边界的离散化</h2>
+
+  <p>设 \(P\) 是边界点，\(Q\) 是唯一向内邻居。所有六个坐标面上的外法向一阶差分都可以统一写成：</p>
+
+  \[
+  \frac{\partial u}{\partial n}
+  \approx
+  \frac{u_P-u_Q}{h}
+  \]
+
+  <p>代入 Sommerfeld 条件：</p>
+
+  \[
+  \frac{u_P-u_Q}{h}
+  -
+  ik_0u_P
+  =
+  0
+  \]
+
+  <p>得到矩阵行：</p>
+
+  \[
+  A_{P,P}
+  =
+  \frac{1}{h}-ik_0
+  \]
+
+  \[
+  A_{P,Q}
+  =
+  -\frac{1}{h}
+  \]
+
+  \[
+  b_P=0
+  \]
+
+  <p>Open 点不再使用 7 点 Helmholtz stencil，而是整行替换成这条两元素边界方程。</p>
+
+  <h2>Dirichlet 换能器行的离散化</h2>
+
+  <p>换能器点的整行替换为单位行：</p>
+
+  \[
+  A_{P,P}=1
+  \]
+
+  \[
+  A_{P,Q}=0,
+  \qquad
+  Q\neq P
+  \]
+
+  \[
+  b_P=A_re^{i\phi_r}
+  \]
+
+  <p>因此相位变化只改变 \(b\)，不改变 \(A\)。这正是后续复用矩阵和分解因子的数学依据。</p>
+
+  <h2>边界分支优先级</h2>
+
+  <p>每个网格点只生成一条矩阵行。Warp 内核的判断顺序为：</p>
+
+  <ol>
+    <li>底面换能器点：Dirichlet 单位行。</li>
+    <li>\(-x\) Open 面。</li>
+    <li>\(+x\) Open 面。</li>
+    <li>\(-y\) Open 面。</li>
+    <li>\(+y\) Open 面。</li>
+    <li>\(-z\) Open 面。</li>
+    <li>\(+z\) Open 面。</li>
+    <li>其余点：内部或 reflecting 7 点 stencil。</li>
+  </ol>
+
+  <p>这意味着换能器优先于 Open/Reflecting；位于多个 Open 面交线上的边或角点，只使用上述顺序中第一个匹配的面方程。</p>
+
+  <h2>稀疏矩阵组装</h2>
+
+  <h3>每点固定 7 个 COO 槽位</h3>
+
+  <p>总自由度为 \(N\)。装配器预分配：</p>
+
+  \[
+  7N
+  \]
+
+  <p>个 COO 槽位。第 \(P\) 行从：</p>
+
+  \[
+  \mathrm{base}=7P
+  \]
+
+  <p>开始，约定槽位：</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>槽位</th>
+        <th>含义</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>0</td><td>对角元素</td></tr>
+      <tr><td>1</td><td>\(-x\) 邻居</td></tr>
+      <tr><td>2</td><td>\(+x\) 邻居</td></tr>
+      <tr><td>3</td><td>\(-y\) 邻居</td></tr>
+      <tr><td>4</td><td>\(+y\) 邻居</td></tr>
+      <tr><td>5</td><td>\(-z\) 邻居</td></tr>
+      <tr><td>6</td><td>\(+z\) 邻居</td></tr>
+    </tbody>
+  </table>
+
+  <p>Dirichlet 行只使用槽位 0；Open 行只使用槽位 0 和 1；其他槽位写入数值 0。</p>
+
+  <h3>GPU 并行写入</h3>
+
+  <p>Warp 为每个 \((i,j,k)\) 网格点启动一个线程。每个线程只写自己对应的 7 个槽位，因此不需要原子加法，也不存在不同行之间的写冲突。</p>
+
+  <p>输出数组为：</p>
+
+  <pre><code>coo_rows
+coo_cols
+coo_vals_r
+coo_vals_i
+rhs_r
+rhs_i</code></pre>
+
+  <p>同时在底面记录每个网格点对应的阵元编号 <code>emitter_map_bottom</code>，用于后续仅更新 RHS。</p>
+
+  <h3>从 COO 到 CSR</h3>
+
+  <p>GPU 内核结束后：</p>
+
+  <ol>
+    <li>把行号、列号、实部和虚部复制到 CPU。</li>
+    <li>组合复数元素：
+      \[
+      A_{\mathrm{data}}
+      =
+      A_{\mathrm{real}}
+      +
+      iA_{\mathrm{imag}}
+      \]
+    </li>
+    <li>删除数值为 0 的占位槽。</li>
+    <li>构造 SciPy CSC 矩阵。</li>
+    <li>主求解器转换成 CSR，供后续切片、凝聚或 GPU 上传。</li>
+  </ol>
+
+  <p>理论上每行最多 7 个非零元，因此：</p>
+
+  \[
+  \operatorname{nnz}(A)\leq 7N
+  \]
+
+  <p>边界行和被过滤的零槽使实际非零元更少。</p>
+
+  <h3>数值类型</h3>
+
+  <p>当前 Warp 物性场和装配系数使用 <code>float</code>，即 GPU 单精度实数。复制到 CPU 后组合并存储为 SciPy <code>complex128</code> 稀疏矩阵。换能器相位 RHS 会根据缓存的阵元映射，用 NumPy <code>complex128</code> 重新计算：</p>
+
+  \[
+  b_P=A_re^{i\phi_r}
+  \]
+
+  <p>因此后续相位更新不会重复使用 Warp 中的单精度三角函数结果。</p>
+
+  <h2>矩阵与 RHS 复用</h2>
+
+  <p>对于仅优化阵元相位的过程，以下量固定：</p>
+
+  <ul>
+    <li>网格和物理尺寸。</li>
+    <li>频率。</li>
+    <li>背景介质。</li>
+    <li>障碍物几何和材料。</li>
+    <li>边界类型。</li>
+    <li>阵元位置和幅值。</li>
+  </ul>
+
+  <p>因此矩阵保持不变：</p>
+
+  \[
+  A(\phi)=A
+  \]
+
+  <p>只有右端变化：</p>
+
+  \[
+  b_P(\phi_r)
+  =
+  A_re^{i\phi_r}
+  \]
+
+  <p>后续相位迭代执行：</p>
+
+  <ol>
+    <li>读取缓存的底面阵元编号。</li>
+    <li>用新相位生成 <code>complex128</code> Dirichlet RHS。</li>
+    <li>复用已装配的 \(A\)。</li>
+    <li>高性能后端继续复用边界分解与 cuDSS 因子。</li>
+  </ol>
+
+  <h2>最终代数系统</h2>
+
+  <p>所有矩阵行组装完成后得到：</p>
+
+  \[
+  A\in\mathbb{C}^{N\times N}
+  \]
+
+  \[
+  u\in\mathbb{C}^{N}
+  \]
+
+  \[
+  b\in\mathbb{C}^{N}
+  \]
+
+  \[
+  A u=b
+  \]
+
+  <p>求解得到的一维向量按 Fortran 顺序恢复为：</p>
+
+  \[
+  u_{i,j,k}
+  =
+  u_{P(i,j,k)}
+  \]
+
+  <p>最终常用物理量包括：</p>
+
+  \[
+  |u|
+  \]
+
+  <p>表示复声压幅值，以及：</p>
+
+  \[
+  |u|^2
+  \]
+
+  <p>作为与声强趋势相关的平方幅值指标。</p>
+
+  <h2>前向与伴随残差</h2>
+
+  <p>前向解使用相对残差检查：</p>
+
+  \[
+  r_{\mathrm{forward}}
+  =
+  \frac{\|Au-b\|_2}{\|b\|_2}
+  \]
+
+  <p>伴随系统为：</p>
+
+  \[
+  A^H\lambda=q
+  \]
+
+  <p>其相对残差为：</p>
+
+  \[
+  r_{\mathrm{adjoint}}
+  =
+  \frac{
+    \|A^H\lambda-q\|_2
+  }{
+    \|q\|_2
+  }
+  \]
+
+  <p>当前高性能直接后端默认要求前向直接法残差不超过：</p>
+
+  \[
+  10^{-4}
+  \]
+
+  <h2>实现流程总览</h2>
+
+  <pre><code>compressible flow equations
+        |
+        v
+linear acoustics assumptions
+        |
+        v
+variable-density pressure wave equation
+        |
+        v
+harmonic ansatz exp(-i omega t)
+        |
+        v
+variable-coefficient Helmholtz equation
+        |
+        +--> material SDF fields rho(x), c(x)
+        +--> transducer Dirichlet rows
+        +--> reflecting zero-flux faces
+        +--> open Sommerfeld rows
+        |
+        v
+7-point flux discretization
+        |
+        v
+Warp COO assembly
+        |
+        v
+SciPy CSC/CSR matrix A and RHS b
+        |
+        v
+selected linear solver backend
+        |
+        v
+full complex pressure field u</code></pre>
+
+  <h2>当前模型的边界与扩展方向</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>当前实现</th>
+        <th>未包含的扩展</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>无粘线性流体声学</td>
+        <td>粘性、热耗散、非线性声学</td>
+      </tr>
+      <tr>
+        <td>标量压力场</td>
+        <td>固体弹性位移、剪切波、流固耦合</td>
+      </tr>
+      <tr>
+        <td>一阶 Sommerfeld ABC</td>
+        <td>高阶 ABC、PML</td>
+      </tr>
+      <tr>
+        <td>单球形平滑材料障碍物</td>
+        <td>多个任意 SDF 障碍物的 GPU 组合</td>
+      </tr>
+      <tr>
+        <td>单频稳态</td>
+        <td>宽带脉冲和时域传播</td>
+      </tr>
+      <tr>
+        <td>各向同性均匀网格</td>
+        <td>非均匀网格、自适应网格</td>
+      </tr>
+    </tbody>
+  </table>
+</div>

@@ -90,7 +90,7 @@
 
   <p>本文档说明当前代码如何把连续声学 Helmholtz 方程离散成线性方程组：</p>
 
-  <p class="note">直接与迭代求解架构见 <a href="SOLVER_ARCHITECTURE.html">SOLVER_ARCHITECTURE.html</a>；递归 Schur 推导见 <a href="SCHUR_SOLVER.html">SCHUR_SOLVER.html</a>。</p>
+  <p class="note">从流体力学到矩阵组装的完整推导见 <a href="ACOUSTIC_PHYSICS_DERIVATION.html">ACOUSTIC_PHYSICS_DERIVATION.html</a>；边界凝聚推导见 <a href="BOUNDARY_CONDENSATION.html">BOUNDARY_CONDENSATION.html</a>；纯相位训练见 <a href="PHASE_ONLY_TRAINING.html">PHASE_ONLY_TRAINING.html</a>；三种求解后端见 <a href="SOLVER_ARCHITECTURE.html">SOLVER_ARCHITECTURE.html</a>。</p>
 
   \[
   A u = b
@@ -401,6 +401,8 @@ rhs_i[idx] = amp * sin(phase)</code></pre>
   <p>所有后端都只对这个已经装配好的 \(A\) 和 \(b\) 做代数运算，因此严格继承所有边界条件和换能器激励。</p>
 
   <h2>边界行的精确静态凝聚</h2>
+
+  <p>本节给出摘要，完整块分解证明、稀疏传递矩阵和同因子伴随推导见 <a href="BOUNDARY_CONDENSATION.html">BOUNDARY_CONDENSATION.html</a>。</p>
 
   <p>默认直接后端会在装配之后消去换能器 Dirichlet 行和 open Sommerfeld 行。把保留的内部/reflecting 自由度记为 \(R\)，被消去的边界自由度记为 \(E\)，原方程写为：</p>
 

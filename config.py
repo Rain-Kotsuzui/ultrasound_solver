@@ -68,6 +68,16 @@ class IOConfig:
 
 
 @dataclass
+class TrainingConfig:
+    mode: str = "phase_only"
+    phase_basis_file: str = "phase_response_basis.npy"
+    phase_basis_batch_size: int = 8
+    voxel_chunk_size: int = 262144
+    load_basis_to_gpu: bool = True
+    release_factor_after_basis: bool = True
+
+
+@dataclass
 class SimulationConfig:
     mode: str
     physics: PhysicsConfig
@@ -77,6 +87,7 @@ class SimulationConfig:
     targets: List[List[float]]
     obstacles: List[Dict]
     io: IOConfig
+    training: TrainingConfig = field(default_factory=TrainingConfig)
     solver: Dict[str, Union[str, int, float, bool]] = field(default_factory=dict)
 
     @property
@@ -129,5 +140,6 @@ class SimulationConfig:
             targets=targets_list,
             obstacles=raw.get("obstacles", []),
             io=IOConfig(**raw.get("io", {})),
+            training=TrainingConfig(**raw.get("training", {})),
             solver=raw.get("solver", {})
         )

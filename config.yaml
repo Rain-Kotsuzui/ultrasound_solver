@@ -21,7 +21,7 @@ domain:
 
 # 4. 线性求解器配置
 solver:
-  backend: "cudss_hybrid_direct"   # cudss_hybrid_direct / gpu_iterative / nested_schur_direct / gpu_direct / cpu_direct
+  backend: "cudss_hybrid_direct"   # gpu_iterative / gpu_direct / cudss_hybrid_direct
   direct_residual_tol: 1.0e-4      # 直接法结果的相对残差上限
   hybrid_num_threads: 1            # Windows 下稳定的 cuDSS hybrid CPU 线程数
   hybrid_execution_mode: "auto"    # auto / hybrid_execute / hybrid_memory
@@ -34,16 +34,17 @@ solver:
   gmres_rtol: 1.0e-6               # 缩放系统相对残差阈值
   gmres_backward_error_tol: 1.0e-4 # 原系统后向误差阈值
   reuse_matrix: true               # 仅相位变化时跳过矩阵与介质场重装配
-  leaf_dofs: 4096                  # Schur: 递归叶子块最大自由度
-  min_axis_size: 3                 # Schur: 允许继续切分的最小轴长度
-  schur_block_size: 256            # Schur: 构造 Schur 补时的列分块大小
-  dense_backend: "gpu"             # Schur: separator dense LU 后端: cpu / gpu
-  gpu_min_separator_dofs: 512      # Schur: separator 规模达到该阈值才使用 GPU LU
-  reuse_factorization: true        # Schur: 相位优化时复用因子，仅更新 RHS 并回代
-  parallel_depth: 1                # Schur: 并行构造子树的递归深度
-  profile_print_depth: 0           # Schur: 打印前几层实时耗时；0 只打印顶层
 
-# 5. 6 面边界条件 (reflecting: 刚性全反射 | open: 自由辐射 Sommerfeld ABC)
+# 5. 逆向训练配置
+training:
+  mode: "phase_only"               # phase_only / obstacle_distribution
+  phase_basis_file: "phase_response_basis.npy"
+  phase_basis_batch_size: 8        # 每批构建的阵元 RHS 数
+  voxel_chunk_size: 262144         # CPU 合成与 VJP 的体素分块大小
+  load_basis_to_gpu: true          # 构建后将响应基常驻 GPU
+  release_factor_after_basis: true # 构建完成后释放 cuDSS 因子
+
+# 6. 6 面边界条件 (reflecting: 刚性全反射 | open: 自由辐射 Sommerfeld ABC)
 boundary_conditions:
   "-x": "open"         # 左侧面
   "+x": "open"         # 右侧面
@@ -52,11 +53,11 @@ boundary_conditions:
   "-z": "reflecting"         # 底面除阵元外的挡板区域
   "+z": "open"               # 顶面自由辐射
 
-# 6. 多目标焦点物理坐标 [x, y, z] (m)
+# 7. 多目标焦点物理坐标 [x, y, z] (m)
 targets:
   - point: [0.05, 0.05, 0.05]     # 目标点 1: 空间几何中心
 
-# 7. 基于材料物性的 SDF 场景障碍物
+# 8. 基于材料物性的 SDF 场景障碍物
 # obstacles:
 #   - type: "sphere"
 #     center: [0.040, 0.040, 0.022]     # 球心位置
@@ -65,7 +66,7 @@ targets:
 #       density: 1250.0                  # 密度 rho (kg/m^3)
 #       sound_speed: 2200.0              # 纵波声速 c (m/s)
 
-# 8. 输出与交互
+# 9. 输出与交互
 io:
   output_file: "ultrasound_field.npz"
   auto_visualize: true

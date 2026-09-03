@@ -89,7 +89,7 @@
 
   <h1>Helmholtz Solver Architecture</h1>
 
-  <p class="note">离散方程和边界条件见 <a href="HELMHOLTZ_DISCRETIZATION.html">HELMHOLTZ_DISCRETIZATION.html</a>；自研递归 Schur 的数学推导见 <a href="SCHUR_SOLVER.html">SCHUR_SOLVER.html</a>。</p>
+  <p class="note">完整物理与矩阵组装推导见 <a href="ACOUSTIC_PHYSICS_DERIVATION.html">ACOUSTIC_PHYSICS_DERIVATION.html</a>；边界凝聚数学原理见 <a href="BOUNDARY_CONDENSATION.html">BOUNDARY_CONDENSATION.html</a>；纯相位训练见 <a href="PHASE_ONLY_TRAINING.html">PHASE_ONLY_TRAINING.html</a>；精简版离散说明见 <a href="HELMHOLTZ_DISCRETIZATION.html">HELMHOLTZ_DISCRETIZATION.html</a>。</p>
 
   <h2>固定矩阵、相位相关右端</h2>
 
@@ -111,10 +111,36 @@
 
   <ol>
     <li>首次调用：Warp 装配 \(A\)，求解器执行 analysis 和 factorization。</li>
-    <li>后续调用：只更新 \(b(\phi)\)，复用矩阵、预处理器或直接分解因子。</li>
+    <li>后续调用：只更新 \(b(\phi)\)；高性能后端同时复用直接分解因子。</li>
   </ol>
 
   <p>首次矩阵装配同时缓存底面阵元映射。后续相位更新由 <code>WarpAssemblyEngine.assemble_rhs()</code> 直接在有效 Dirichlet 点上用 NumPy <code>complex128</code> 生成复数 RHS，不再遍历整个体网格。</p>
+
+  <h2>训练模式</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>模式</th>
+        <th>矩阵变化</th>
+        <th>前向路径</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>phase_only</code></td>
+        <td>固定</td>
+        <td>离线构建 \(G=A^{-1}B\)，在线使用 \(u=Ge^{i\phi}\)。</td>
+      </tr>
+      <tr>
+        <td><code>obstacle_distribution</code></td>
+        <td>随障碍物参数变化</td>
+        <td>禁止复用固定 \(G\)，每轮重新装配并执行 PDE 前向/伴随。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>训练层不增加新的 solver backend。详细推导、断点缓存和 VJP 见 <a href="PHASE_ONLY_TRAINING.html">PHASE_ONLY_TRAINING.html</a>。</p>
 
   <h2>后端选择</h2>
 
@@ -128,34 +154,26 @@
     </thead>
     <tbody>
       <tr>
-        <td><code>cudss_hybrid_direct</code></td>
-        <td>精确凝聚 Dirichlet/Open 边界后，对复对称约化矩阵执行 cuDSS 分解；持久复用 factorization；自动选择 hybrid execute 或 hybrid memory。</td>
-        <td>当前生产默认。已在 8 GiB GPU 上完成 \(108^3\) 前向和伴随求解。</td>
-      </tr>
-      <tr>
-        <td><code>nested_schur_direct</code></td>
-        <td>自研 Exact Schur / Nested Dissection；支持前向、伴随和多 RHS。</td>
-        <td>数学验证、中小规模和分解过程分析。</td>
-      </tr>
-      <tr>
         <td><code>gpu_iterative</code></td>
         <td>行缩放 Jacobi-GMRES。</td>
-        <td>低显存备选。它是容差控制的迭代解，不等同于精确直接分解。</td>
+        <td>迭代方法。显存需求低，但结果由收敛容差控制。</td>
       </tr>
       <tr>
         <td><code>gpu_direct</code></td>
         <td>全 GPU cuDSS，一次性 plan/factor/solve。</td>
-        <td>小规模诊断；不复用因子。</td>
+        <td>原始方法。实现直接，但大规模分解容易超过显存。</td>
       </tr>
       <tr>
-        <td><code>cpu_direct</code></td>
-        <td>把复系统展开为 \(2N\times2N\) 实系统后调用 Pardiso。</td>
-        <td>兼容回退；内存和时间成本最高。</td>
+        <td><code>cudss_hybrid_direct</code></td>
+        <td>精确凝聚 Dirichlet/Open 边界后，对复对称约化矩阵执行 cuDSS 分解；持久复用 factorization；自动选择 hybrid execute 或 hybrid memory。</td>
+        <td>高性能方法和当前默认。已在 8 GiB GPU 上完成 \(108^3\) 前向和伴随求解。</td>
       </tr>
     </tbody>
   </table>
 
   <h2>精确边界静态凝聚</h2>
+
+  <p>完整块分解证明、稀疏传递矩阵构造和同因子伴随推导见 <a href="BOUNDARY_CONDENSATION.html">BOUNDARY_CONDENSATION.html</a>。</p>
 
   <p><code>BoundaryCondensedDirectSolver</code> 负责该步骤。原始矩阵由于 Dirichlet 单位行和 Sommerfeld 单边行不是对称矩阵，但所有保留的内部及 reflecting stencil 都是复对称的。把未知量分为保留自由度 \(R\) 和待消去边界自由度 \(E\)：</p>
 
@@ -219,6 +237,8 @@
 
   <p><code>hybrid_execution_mode: "auto"</code> 的选择规则为：</p>
 
+  <p>这里的 <code>auto</code> 只在高性能后端内部选择显存执行模式，不是第四种线性求解器。</p>
+
   <pre><code>if hybrid-execute peak &lt;= GPU budget:
     use hybrid execute
 elif HMM minimum &lt;= GPU budget:
@@ -256,7 +276,7 @@ hybrid_register_cuda_memory: false</code></pre>
   A^H \lambda = q
   \]
 
-  <p>自研 Schur 后端可直接复用同一棵消元树执行共轭转置回代。默认凝聚后端利用 \(S^T=S\)，因此：</p>
+  <p>高性能凝聚后端利用 \(S^T=S\)，因此：</p>
 
   \[
   S^H = \overline{S}
