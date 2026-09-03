@@ -1,6 +1,7 @@
 pyyaml>=6.0
 numpy>=1.23.0
 scipy>=1.10.0
+matplotlib>=3.7.0
 pyvista>=0.40.0
 warp-lang>=1.0.0
 cupy-cuda12x[ctk]>=14.0.0

@@ -65,6 +65,16 @@ targets:
 #     material:
 #       density: 1250.0                  # 密度 rho (kg/m^3)
 #       sound_speed: 2200.0              # 纵波声速 c (m/s)
+#
+#   - type: "mesh"
+#     file: "meshes/obstacle.stl"         # 相对路径以此 YAML 所在目录为基准
+#     center_m: [0.05, 0.05, 0.04]        # 变换后包围盒中心 (m)
+#     rotation_deg: [0.0, 0.0, 90.0]      # 依次绕 X/Y/Z 轴旋转 (deg)
+#     scale: 0.001                         # mesh 原始单位到 m 的统一缩放
+#     smoothing_width_cells: 1.2           # 界面半宽 (网格单元数)，0 为硬界面
+#     material:
+#       density: 1250.0
+#       sound_speed: 2200.0
 
 # 9. 输出与交互
 io:
