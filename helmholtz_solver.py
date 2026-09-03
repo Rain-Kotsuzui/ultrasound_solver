@@ -35,6 +35,7 @@ class HelmholtzDirectSolver:
         self.A_cached_csr_gpu = None
         self.A_cached_H_csr_gpu = None
         self.rhs_cached = None
+        self._obs_sdf = None
         self.condensed_solver = None
         self.iterative_solver = GpuIterativeSolver(
             restart=int(self.cfg.solver.get("gmres_restart", 30)),
@@ -48,13 +49,49 @@ class HelmholtzDirectSolver:
             ),
         )
 
+    @property
+    def obstacle_sdf(self) -> np.ndarray | None:
+        """(nx, ny, nz) SDF of the active mesh obstacle, or None."""
+        return self._obs_sdf
+
     def assemble_matrix(self, force: bool = False) -> np.ndarray:
         if self.A_cached_csr_cpu is not None and not force:
             return self.rhs_cached
         if force:
             self.invalidate_factorization()
+            self._obs_sdf = None
 
+        if len(self.cfg.obstacles) > 1:
+            raise NotImplementedError(
+                "The solver currently supports one obstacle at a time"
+            )
         obstacle = self.cfg.obstacles[0] if self.cfg.obstacles else {}
+        obs_sdf = None
+        if obstacle.get("type", "").lower() == "mesh":
+            if self._obs_sdf is None:
+                from mesh_to_sdf import mesh_to_sdf
+
+                self._obs_sdf = mesh_to_sdf(
+                    mesh_path=obstacle["file"],
+                    grid_size=(
+                        self.cfg.domain.nx,
+                        self.cfg.domain.ny,
+                        self.cfg.domain.nz,
+                    ),
+                    box_size=(
+                        self.cfg.domain.lx,
+                        self.cfg.domain.ly,
+                        self.cfg.domain.lz,
+                    ),
+                    center_m=obstacle["center_m"],
+                    rotation_deg=obstacle.get(
+                        "rotation_deg", (0.0, 0.0, 0.0)
+                    ),
+                    origin=(0.0, 0.0, 0.0),
+                    scale=float(obstacle.get("scale", 1.0)),
+                )
+            obs_sdf = self._obs_sdf
+
         matrix, _ = self.warp_engine.assemble_system_gpu(
             dx=self.cfg.domain.dx,
             omega=self.cfg.omega,
@@ -68,6 +105,7 @@ class HelmholtzDirectSolver:
             trans_radius=self.cfg.specs.diameter * 0.5,
             trans_pitch=self.cfg.specs.pitch,
             bcs_dict=self.cfg.boundary_conditions,
+            obs_sdf=obs_sdf,
         )
         self.A_cached_csr_cpu = matrix.tocsr()
         return self.update_rhs()
