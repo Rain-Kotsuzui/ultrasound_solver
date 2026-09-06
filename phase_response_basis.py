@@ -38,6 +38,7 @@ class PhaseResponseBasis:
         self.basis = None
         self.basis_gpu = None
         self.completed_columns = 0
+        self._mesh_hash_cache = None
 
         if self.rhs_batch_size < 1:
             raise ValueError("rhs_batch_size must be at least 1")
@@ -304,6 +305,7 @@ class PhaseResponseBasis:
             "domain": asdict(cfg.domain),
             "boundary_conditions": cfg.boundary_conditions,
             "obstacles": cfg.obstacles,
+            "mesh_content_sha256": self._mesh_content_hashes(),
             "amplitudes": self.solver.transducers.amplitudes.tolist(),
         }
         encoded = json.dumps(
@@ -312,6 +314,22 @@ class PhaseResponseBasis:
             separators=(",", ":"),
         ).encode("utf-8")
         return hashlib.sha256(encoded).hexdigest()
+
+    def _mesh_content_hashes(self) -> dict[str, str]:
+        if self._mesh_hash_cache is not None:
+            return self._mesh_hash_cache
+        hashes = {}
+        for obstacle in self.solver.cfg.obstacles:
+            if obstacle.get("type", "").lower() != "mesh":
+                continue
+            path = Path(obstacle["file"])
+            digest = hashlib.sha256()
+            with path.open("rb") as mesh_file:
+                for chunk in iter(lambda: mesh_file.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            hashes[str(path)] = digest.hexdigest()
+        self._mesh_hash_cache = hashes
+        return hashes
 
     def _chunked_matvec(self, weights: np.ndarray) -> np.ndarray:
         result = np.empty(self.solver.total_dofs, dtype=np.complex128)
