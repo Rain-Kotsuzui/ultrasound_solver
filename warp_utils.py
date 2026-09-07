@@ -40,6 +40,30 @@ def compute_material_fields_kernel(
     rho_field[i, j, k] = rho_obs + (rho0 - rho_obs) * H
     c_field[i, j, k] = c_obs + (c0 - c_obs) * H
 
+
+@wp.kernel
+def compute_material_fields_sdf_kernel(
+    rho_field: wp.array(dtype=float, ndim=3),
+    c_field: wp.array(dtype=float, ndim=3),
+    sdf_field: wp.array(dtype=float, ndim=3),
+    nx: int, ny: int, nz: int, smoothing_epsilon: float,
+    rho0: float, c0: float,
+    rho_obs: float, c_obs: float
+):
+    i, j, k = wp.tid()
+    if i >= nx or j >= ny or k >= nz:
+        return
+
+    phi = sdf_field[i, j, k]
+    H = float(0.0)
+    if smoothing_epsilon > 0.0:
+        H = smooth_heaviside(phi, smoothing_epsilon)
+    elif phi > 0.0:
+        H = float(1.0)
+
+    rho_field[i, j, k] = rho_obs + (rho0 - rho_obs) * H
+    c_field[i, j, k] = c_obs + (c0 - c_obs) * H
+
 # -------------------------------------------------------------------------
 # Warp Kernel 2: 核心 3D 变参数 Helmholtz 极速装配 Kernel (COO 格式)
 # -------------------------------------------------------------------------
@@ -271,6 +295,9 @@ class WarpAssemblyEngine:
         # 预分配连续 GPU 显存池
         self.rho_field = wp.zeros((nx, ny, nz), dtype=float, device=self.device)
         self.c_field = wp.zeros((nx, ny, nz), dtype=float, device=self.device)
+        self.sdf_field = wp.zeros(
+            (nx, ny, nz), dtype=float, device=self.device
+        )
 
         self.coo_rows = wp.zeros(self.total_entries, dtype=int, device=self.device)
         self.coo_cols = wp.zeros(self.total_entries, dtype=int, device=self.device)
@@ -289,31 +316,65 @@ class WarpAssemblyEngine:
         trans_phases_np: np.ndarray,
         trans_amps_np: np.ndarray,
         array_n: int, trans_radius: float, trans_pitch: float,
-        bcs_dict: dict
+        bcs_dict: dict,
+        obs_sdf: np.ndarray | None = None
     ) -> tuple:
         """调用 GPU Kernel 极速装配稀疏系统"""
-        # 1. 障碍物参数
-        obs_center = wp.vec3(*obs_cfg.get("center", [0.04, 0.04, 0.02]))
-        obs_radius = float(obs_cfg.get("radius", 0.012))
-        mat = obs_cfg.get("material", {})
+        # 1. 障碍物参数与物性场
+        obs_type = (obs_cfg.get("type", "") if obs_cfg else "").lower()
+        mat = obs_cfg.get("material", {}) if obs_cfg else {}
         rho_obs = float(mat.get("density", 1250.0))
         c_obs = float(mat.get("sound_speed", 2200.0))
-        if not obs_cfg:
-            rho_obs = rho0
-            c_obs = c0
 
-        # 2. 生成连续介质物性场
-        wp.launch(
-            kernel=compute_material_fields_kernel,
-            dim=(self.nx, self.ny, self.nz),
-            inputs=[
-                self.rho_field, self.c_field,
-                self.nx, self.ny, self.nz, dx,
-                rho0, c0, rho_obs, c_obs,
-                obs_center, obs_radius
-            ],
-            device=self.device
-        )
+        if obs_type == "mesh":
+            if obs_sdf is None:
+                raise ValueError("mesh obstacle requires a precomputed SDF (obs_sdf)")
+            sdf = np.asarray(obs_sdf, dtype=np.float32)
+            expected_shape = (self.nx, self.ny, self.nz)
+            if sdf.shape != expected_shape:
+                raise ValueError(
+                    f"obs_sdf shape {sdf.shape} != solver grid {expected_shape}"
+                )
+            if not np.isfinite(sdf).all():
+                raise ValueError("obs_sdf contains NaN or infinite values")
+            smoothing_width = float(
+                obs_cfg.get("smoothing_width_cells", 1.2)
+            )
+            if not np.isfinite(smoothing_width) or smoothing_width < 0.0:
+                raise ValueError("smoothing_width_cells must be finite and >= 0")
+            self.sdf_field.assign(np.ascontiguousarray(sdf))
+            wp.launch(
+                kernel=compute_material_fields_sdf_kernel,
+                dim=(self.nx, self.ny, self.nz),
+                inputs=[
+                    self.rho_field, self.c_field, self.sdf_field,
+                    self.nx, self.ny, self.nz, smoothing_width * dx,
+                    rho0, c0, rho_obs, c_obs
+                ],
+                device=self.device
+            )
+        elif obs_type in ("", "sphere"):
+            if not obs_cfg:
+                rho_obs = rho0
+                c_obs = c0
+            obs_center = wp.vec3(*obs_cfg.get("center", [0.04, 0.04, 0.02]))
+            obs_radius = float(obs_cfg.get("radius", 0.012))
+            wp.launch(
+                kernel=compute_material_fields_kernel,
+                dim=(self.nx, self.ny, self.nz),
+                inputs=[
+                    self.rho_field, self.c_field,
+                    self.nx, self.ny, self.nz, dx,
+                    rho0, c0, rho_obs, c_obs,
+                    obs_center, obs_radius
+                ],
+                device=self.device
+            )
+        else:
+            raise ValueError(
+                f"Unsupported obstacle type: {obs_type!r}; "
+                "expected 'sphere' or 'mesh'"
+            )
 
         # 3. 边界条件标志位 (0: reflecting, 1: open)
         bc_flags = [1 if bcs_dict.get(k) == "open" else 0 for k in ["-x", "+x", "-y", "+y", "-z", "+z"]]

@@ -2,7 +2,6 @@ import argparse
 import json
 import numpy as np
 from config import SimulationConfig
-from geometry_sdf import SDFScene
 from helmholtz_solver import HelmholtzDirectSolver
 from visualizer import show_pyvista_scene
 
@@ -65,14 +64,16 @@ def main():
         zs = np.linspace(0.0, (nz - 1) * dx, nz)
         X, Y, Z = np.meshgrid(xs, ys, zs, indexing='ij')
 
-        scene = SDFScene(cfg.obstacles)
         p = np.stack([X, Y, Z], axis=-1)
         sdf_grid = np.full(X.shape, np.inf)
         if cfg.obstacles:
             obs = cfg.obstacles[0]
-            center = np.array(obs.get("center", [0.04, 0.04, 0.02]), dtype=np.float64)
-            rad = float(obs.get("radius", 0.012))
-            sdf_grid = np.linalg.norm(p - center, axis=-1) - rad
+            if obs.get("type", "").lower() == "mesh":
+                sdf_grid = solver.obstacle_sdf
+            else:
+                center = np.array(obs.get("center", [0.04, 0.04, 0.02]), dtype=np.float64)
+                rad = float(obs.get("radius", 0.012))
+                sdf_grid = np.linalg.norm(p - center, axis=-1) - rad
 
         # 5. 保存完整物理元数据
         out_file = cfg.io.output_file

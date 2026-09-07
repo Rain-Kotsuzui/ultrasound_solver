@@ -1,6 +1,7 @@
 import yaml
 import numpy as np
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Dict, List, Union
 
 
@@ -126,10 +127,24 @@ class SimulationConfig:
 
     @classmethod
     def from_yaml(cls, yaml_path: str) -> "SimulationConfig":
+        yaml_path = Path(yaml_path).expanduser().resolve()
         with open(yaml_path, "r", encoding="utf-8") as f:
             raw = yaml.safe_load(f)
 
         targets_list = [t["point"] for t in raw.get("targets", [])]
+        obstacles = []
+        for item in raw.get("obstacles", []):
+            obstacle = dict(item)
+            if obstacle.get("type", "").lower() == "mesh":
+                if "file" not in obstacle:
+                    raise ValueError("mesh obstacle requires a 'file' path")
+                if "center_m" not in obstacle:
+                    raise ValueError("mesh obstacle requires 'center_m'")
+                mesh_path = Path(obstacle["file"]).expanduser()
+                if not mesh_path.is_absolute():
+                    mesh_path = yaml_path.parent / mesh_path
+                obstacle["file"] = str(mesh_path.resolve())
+            obstacles.append(obstacle)
 
         return cls(
             mode=raw.get("mode", "baseline").lower(),
@@ -138,7 +153,7 @@ class SimulationConfig:
             domain=DomainConfig(**raw["domain"]),
             boundary_conditions=raw["boundary_conditions"],
             targets=targets_list,
-            obstacles=raw.get("obstacles", []),
+            obstacles=obstacles,
             io=IOConfig(**raw.get("io", {})),
             training=TrainingConfig(**raw.get("training", {})),
             solver=raw.get("solver", {})
