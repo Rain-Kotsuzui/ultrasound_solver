@@ -1,0 +1,47 @@
+[
+  {
+    "model": "Plate",
+    "dimensions_mm": "22.0 x 22.0 x 3.0",
+    "left_center_x_mm": 48.5,
+    "right_center_x_mm": 51.5,
+    "displacement_mm": 2.9999999999999956,
+    "top_peak_left_pa": 787.046039146418,
+    "top_peak_right_pa": 787.0460391464867,
+    "mean_absolute_difference_pa": 34.413229216823794,
+    "rms_difference_pa": 50.91453996282269,
+    "max_absolute_difference_pa": 207.35623122446077,
+    "relative_l2_difference": 0.13281353521174394,
+    "spatial_correlation": 0.9699184226841328,
+    "all_emitter_phases_rad": 0.0
+  },
+  {
+    "model": "Sphere",
+    "dimensions_mm": "20.0 x 20.0 x 20.0",
+    "left_center_x_mm": 48.5,
+    "right_center_x_mm": 51.5,
+    "displacement_mm": 2.9999999999999956,
+    "top_peak_left_pa": 695.3044902425189,
+    "top_peak_right_pa": 695.3044977592031,
+    "mean_absolute_difference_pa": 35.905960299522,
+    "rms_difference_pa": 48.84440377381062,
+    "max_absolute_difference_pa": 211.95825983566098,
+    "relative_l2_difference": 0.1331079509092327,
+    "spatial_correlation": 0.9647819287535377,
+    "all_emitter_phases_rad": 0.0
+  },
+  {
+    "model": "Hand",
+    "dimensions_mm": "49.8 x 20.0 x 15.4",
+    "left_center_x_mm": 48.5,
+    "right_center_x_mm": 51.5,
+    "displacement_mm": 2.9999999999999956,
+    "top_peak_left_pa": 156.83150422211128,
+    "top_peak_right_pa": 178.12403921263837,
+    "mean_absolute_difference_pa": 25.47144520209795,
+    "rms_difference_pa": 32.89920540862131,
+    "max_absolute_difference_pa": 117.503692772431,
+    "relative_l2_difference": 0.6652527861437144,
+    "spatial_correlation": 0.23761306531651927,
+    "all_emitter_phases_rad": 0.0
+  }
+]

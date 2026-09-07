@@ -1,0 +1,27 @@
+D:\miniconda3\envs\ultrasound_solver\Lib\site-packages\cupy\_environment.py:286: UserWarning: CUDA path could not be detected. Set CUDA_PATH environment variable if CuPy fails to load.
+  warnings.warn(
+Warp 1.17.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.2
+   Devices:
+     "cpu"      : "Intel64 Family 6 Model 198 Stepping 2, GenuineIntel"
+     "cuda:0"   : "NVIDIA GeForce RTX 5070 Laptop GPU" (8 GiB, sm_120, mempool enabled)
+   Kernel cache:
+     \\?\C:\Users\boshu\AppData\Local\NVIDIA\warp\Cache\1.17.0
+=================================================================
+换能器规格: 40000.0 Hz, SPL=115.0 dB @ 0.300 m, 直径=0.0100 m
+--> 标定发射表面声压 P0 = 520.97 Pa (波长 λ = 8.57 mm)
+--> 计算区域尺寸: [10.0 x 10.0 x 10.0] cm, 网格步长 dx = 1.449 mm
+=================================================================
+Computing baseline phases...
+
+=================================================================
+[Smart Solver] 启动智能混合线性求解 (DOFs: 343,000)
+=================================================================
+Module warp_utils 2557fa6 load on device 'cuda:0' took 289.70 ms  (cached)
+[OK] 阶段 1/2: Warp GPU 矩阵装配完成 | NNZ: 2,261,616 | 耗时: 3866.52 ms
+[RUN] 阶段 2/2: 调用凝聚复对称 cuDSS 直接求解...
+  --> cuDSS: mode=hybrid_execute | plan=1.936s | factor=7.157s | residual=2.915e-06
+[OK] 阶段 2/2: 线性系统求解完成! 耗时: 9.43 秒
+=================================================================
+[Main] No target points configured; using the prescribed emitter phases.
+[Main] 仿真结果及 3D 元数据已保存至: 'E:\ultrasound_solver\obstacle_displacement_study\results\sphere_right.npz'

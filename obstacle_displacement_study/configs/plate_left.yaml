@@ -1,0 +1,56 @@
+mode: baseline
+physics:
+  sound_speed: 343.0
+  medium_density: 1.21
+transducer_specs:
+  frequency: 40000.0
+  spl_db: 115.0
+  spl_distance: 0.3
+  diameter: 0.01
+  pitch: 0.01
+  array_n: 9
+domain:
+  box_size:
+  - 0.1
+  - 0.1
+  - 0.1
+  grid_size:
+  - 70
+  - 70
+  - 70
+solver:
+  backend: cudss_hybrid_direct
+  direct_residual_tol: 0.0005
+  hybrid_num_threads: 1
+  hybrid_execution_mode: auto
+  hybrid_device_memory_limit_gb: 5.6
+  hybrid_device_memory_reserve_gb: 0.75
+  hybrid_register_cuda_memory: false
+  condensed_symmetry_tolerance: 1.0e-12
+boundary_conditions:
+  -x: open
+  +x: open
+  -y: open
+  +y: open
+  -z: reflecting
+  +z: open
+targets: []
+obstacles:
+- type: mesh
+  file: C:\workspace\ultrasound_solver\obstacle_displacement_study\models\plate_22x22x3mm.vtk
+  center_m:
+  - 0.0485
+  - 0.05
+  - 0.045
+  rotation_deg:
+  - 0.0
+  - 0.0
+  - 0.0
+  scale: 1.0
+  smoothing_width_cells: 1.2
+  material:
+    density: 1250.0
+    sound_speed: 2200.0
+io:
+  output_file: C:\workspace\ultrasound_solver\obstacle_displacement_study\results\plate_left.npz
+  auto_visualize: false

@@ -1,0 +1,35 @@
+[
+  {
+    "base": "Plate",
+    "compare": "Sphere",
+    "base_key": "plate",
+    "compare_key": "sphere",
+    "relative_l2": 0.1989952372324774,
+    "symmetric_relative_l2": 0.20339347591114904,
+    "mean_absolute_difference_pa": 58.53944791401974,
+    "max_absolute_difference_pa": 244.84694187767707,
+    "spatial_correlation": 0.9313878201076021
+  },
+  {
+    "base": "Plate",
+    "compare": "Hand",
+    "base_key": "plate",
+    "compare_key": "hand",
+    "relative_l2": 0.9010604434562549,
+    "symmetric_relative_l2": 2.50873226190958,
+    "mean_absolute_difference_pa": 281.81606381518606,
+    "max_absolute_difference_pa": 774.5991262195776,
+    "spatial_correlation": 0.2674076217536689
+  },
+  {
+    "base": "Sphere",
+    "compare": "Hand",
+    "base_key": "sphere",
+    "compare_key": "hand",
+    "relative_l2": 0.8930136137802633,
+    "symmetric_relative_l2": 2.4325632070833736,
+    "mean_absolute_difference_pa": 276.6320602626362,
+    "max_absolute_difference_pa": 657.8507643376826,
+    "spatial_correlation": 0.3055630776597556
+  }
+]
