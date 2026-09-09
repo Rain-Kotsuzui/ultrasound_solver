@@ -71,11 +71,28 @@ class IOConfig:
 @dataclass
 class TrainingConfig:
     mode: str = "phase_only"
+    loss_type: str = "field_match"
+    initial_phase: str = "baseline"
+    compare_baseline: bool = False
     phase_basis_file: str = "phase_response_basis.npy"
     phase_basis_batch_size: int = 8
     voxel_chunk_size: int = 262144
     load_basis_to_gpu: bool = True
     release_factor_after_basis: bool = True
+    target_field_file: str = ""
+    target_peak_pressure: float = 600.0
+    target_sigma: float = 0.006
+    background_pressure: float = 0.0
+    target_weight: float = 1.0
+    background_weight: float = 0.05
+    target_radius: float = 0.006
+    source_exclusion_layers: int = 4
+    sidelobe_temperature: float = 25.0
+    optimizer: str = "adam"
+    learning_rate: float = 0.05
+    iterations: int = 100
+    gradient_check: bool = False
+    gradient_check_step: float = 1.0e-3
 
 
 @dataclass

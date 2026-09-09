@@ -6,11 +6,11 @@ import numpy as np
 import warp as wp
 from nvmath.sparse.advanced import DirectSolver
 
-from boundary_condensed_solver import BoundaryCondensedDirectSolver
 from config import SimulationConfig
-from iterative_solver import GpuIterativeSolver
-from transducer_array import TransducerArray
-from warp_utils import WarpAssemblyEngine
+from physics.transducer_array import TransducerArray
+from physics.warp_utils import WarpAssemblyEngine
+from solvers.boundary_condensed_solver import BoundaryCondensedDirectSolver
+from solvers.iterative_solver import GpuIterativeSolver
 
 
 class HelmholtzDirectSolver:
@@ -69,7 +69,7 @@ class HelmholtzDirectSolver:
         obs_sdf = None
         if obstacle.get("type", "").lower() == "mesh":
             if self._obs_sdf is None:
-                from mesh_to_sdf import mesh_to_sdf
+                from physics.mesh_to_sdf import mesh_to_sdf
 
                 self._obs_sdf = mesh_to_sdf(
                     mesh_path=obstacle["file"],
@@ -136,7 +136,7 @@ class HelmholtzDirectSolver:
             self._ensure_condensed_solver()
 
     def build_phase_response_basis(self):
-        from phase_response_basis import PhaseResponseBasis
+        from training.phase_response_basis import PhaseResponseBasis
 
         training = self.cfg.training
         return PhaseResponseBasis(

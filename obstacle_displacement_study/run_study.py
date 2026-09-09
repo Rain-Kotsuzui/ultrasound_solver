@@ -159,7 +159,12 @@ def run_jobs(jobs: list[tuple[dict, str, Path]]) -> None:
             continue
         print(f"[{index}/6] Solving {case['label']} at {position_name} position")
         process = subprocess.run(
-            [sys.executable, str(ROOT / "main.py"), "--config", str(config_path)],
+            [
+                sys.executable,
+                str(ROOT / "src" / "main.py"),
+                "--config",
+                str(config_path),
+            ],
             cwd=ROOT,
             text=True,
             stdout=subprocess.PIPE,

@@ -2,7 +2,8 @@ import argparse
 import json
 import numpy as np
 from config import SimulationConfig
-from helmholtz_solver import HelmholtzDirectSolver
+from solvers.helmholtz_solver import HelmholtzDirectSolver
+from training.phase_adjoint_optimizer import PhaseOnlyOptimizer
 from visualizer import show_pyvista_scene
 
 
@@ -34,7 +35,12 @@ def evaluate_targets(amplitude_field: np.ndarray, targets: list, dx: float):
 
 def main():
     parser = argparse.ArgumentParser(description="Warp-Accelerated 3D Ultrasound Forward Solver")
-    parser.add_argument("--config", type=str, default="config.yaml", help="Path to YAML config")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="src/examples/config.yaml",
+        help="Path to YAML config",
+    )
     args = parser.parse_args()
 
     # 1. 解析配置
@@ -109,6 +115,93 @@ def main():
                 "[Main] Phase-only training forward model ready | "
                 f"shape={basis.shape} | storage={location}"
             )
+            optimizer = PhaseOnlyOptimizer(cfg, basis)
+            if cfg.training.gradient_check:
+                rows = optimizer.gradient_check(optimizer.initial_phases)
+                for row in rows:
+                    print(
+                        "[GradCheck] "
+                        f"emitter={row['index']} "
+                        f"adjoint={row['adjoint_gradient']:.6e} "
+                        f"finite_diff={row['finite_difference']:.6e} "
+                        f"abs_err={row['absolute_error']:.6e} "
+                        f"rel_err={row['relative_error']:.6e}"
+                    )
+            baseline_phases = None
+            baseline_field = None
+            baseline_amplitude = None
+            if cfg.training.compare_baseline:
+                baseline_phases = np.mod(
+                    solver.transducers._compute_baseline_phases(),
+                    2.0 * np.pi,
+                )
+                baseline_field = basis.field(
+                    baseline_phases,
+                    return_numpy=True,
+                )
+                baseline_amplitude = np.abs(baseline_field)
+                baseline_target, baseline_background = (
+                    optimizer.loss_model.stats(baseline_field)
+                )
+                print(
+                    "[BaselineCompare] "
+                    f"target={baseline_target:.3f} Pa "
+                    f"background_ref={baseline_background:.3f} Pa "
+                    f"contrast={baseline_target / baseline_background:.4f}"
+                )
+            initial_field = basis.field(optimizer.initial_phases, return_numpy=True)
+            initial_amplitude = np.abs(initial_field)
+            phases, history = optimizer.optimize()
+            solver.set_phases(phases)
+            final_field = basis.field(phases, return_numpy=True)
+            amplitude_field = np.abs(final_field)
+            output = {
+                "initial_amplitude": initial_amplitude,
+                "amplitude": amplitude_field,
+                "amp_sq": amplitude_field**2,
+                "u_complex": final_field,
+                "phases": phases,
+                "source_positions": solver.transducers.centers,
+                "target_points": np.array(cfg.targets),
+                "boundary_conditions": json.dumps(cfg.boundary_conditions),
+                "transducer_radius": cfg.specs.diameter * 0.5,
+                "dx": cfg.domain.dx,
+                "frequency": cfg.frequency,
+                "c0": cfg.physics.sound_speed,
+                "loss_history": np.array(
+                    [state.loss for state in history],
+                    dtype=np.float64,
+                ),
+                "gradient_norm_history": np.array(
+                    [state.gradient_norm for state in history],
+                    dtype=np.float64,
+                ),
+                "target_amplitude": optimizer.target.target,
+                "target_weight": optimizer.target.weight,
+            }
+            if baseline_amplitude is not None:
+                output.update(
+                    {
+                        "baseline_amplitude": baseline_amplitude,
+                        "baseline_amp_sq": baseline_amplitude**2,
+                        "baseline_u_complex": baseline_field,
+                        "baseline_phases": baseline_phases,
+                    }
+                )
+            np.savez_compressed(
+                cfg.io.output_file,
+                **output,
+            )
+            print(
+                "[Main] Phase-only optimization result saved to: "
+                f"'{cfg.io.output_file}'"
+            )
+            if cfg.io.auto_visualize:
+                show_pyvista_scene(
+                    cfg.io.output_file,
+                    field_name="amplitude",
+                    compare_methods=cfg.training.compare_baseline,
+                )
         elif training_mode == "obstacle_distribution":
             print(
                 "[Main] Obstacle-distribution training selected. "

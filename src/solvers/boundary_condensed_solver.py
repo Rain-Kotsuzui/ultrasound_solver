@@ -4,7 +4,7 @@ import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 
-from cudss_hybrid_solver import CuDSSHybridSymmetricSolver
+from solvers.cudss_hybrid_solver import CuDSSHybridSymmetricSolver
 
 
 class BoundaryCondensedDirectSolver:

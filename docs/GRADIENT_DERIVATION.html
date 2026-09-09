@@ -1,0 +1,479 @@
+<div id="gradient-doc">
+  <style>
+    #gradient-doc {
+      max-width: 1060px;
+      margin: 0 auto;
+      padding: 28px 34px 64px;
+      color: #1f2933;
+      background: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.66;
+    }
+
+    #gradient-doc h1 {
+      margin: 0 0 18px;
+      font-size: 30px;
+      line-height: 1.25;
+    }
+
+    #gradient-doc h2 {
+      margin-top: 34px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #d8dee4;
+      font-size: 22px;
+    }
+
+    #gradient-doc h3 {
+      margin-top: 24px;
+      font-size: 18px;
+    }
+
+    #gradient-doc code {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: #f3f4f6;
+      font-family: Consolas, "SFMono-Regular", monospace;
+      font-size: 0.94em;
+    }
+
+    #gradient-doc pre {
+      padding: 14px 16px;
+      overflow: auto;
+      border-radius: 6px;
+      background: #f6f8fa;
+    }
+
+    #gradient-doc pre code {
+      padding: 0;
+      background: transparent;
+    }
+
+    #gradient-doc table {
+      width: 100%;
+      margin: 14px 0 20px;
+      border-collapse: collapse;
+    }
+
+    #gradient-doc th,
+    #gradient-doc td {
+      padding: 8px 10px;
+      border: 1px solid #d8dee4;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    #gradient-doc th {
+      background: #f6f8fa;
+    }
+
+    #gradient-doc .note {
+      padding: 10px 14px;
+      border-left: 4px solid #2563eb;
+      background: #eff6ff;
+    }
+
+    #gradient-doc .warn {
+      padding: 10px 14px;
+      border-left: 4px solid #b45309;
+      background: #fff7ed;
+    }
+  </style>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [["\\(", "\\)"]],
+        displayMath: [["\\[", "\\]"]]
+      },
+      svg: {
+        fontCache: "global"
+      }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <h1>Gradient Derivation for Phase-Only and PDE Adjoint Optimization</h1>
+
+  <p class="note">本文档补齐求梯度主线：当前已实现的是固定场景下的相位梯度，使用响应基 \(G=A^{-1}B\) 做解析 VJP；如果未来优化障碍物几何、SDF 或材料参数，则需要使用 PDE 伴随法。</p>
+
+  <h2>符号约定</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>符号</th>
+        <th>含义</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>\(A\in\mathbb{C}^{N\times N}\)</td>
+        <td>离散 Helmholtz 系统矩阵，由网格、材料、障碍物和边界条件决定。</td>
+      </tr>
+      <tr>
+        <td>\(u\in\mathbb{C}^{N}\)</td>
+        <td>完整三维复声压场。</td>
+      </tr>
+      <tr>
+        <td>\(\phi\in\mathbb{R}^{M}\)</td>
+        <td>换能器相位，当前 phase-only 优化的变量。</td>
+      </tr>
+      <tr>
+        <td>\(w(\phi)=\exp(i\phi)\)</td>
+        <td>单位模复相位权重。</td>
+      </tr>
+      <tr>
+        <td>\(B\in\mathbb{C}^{N\times M}\)</td>
+        <td>换能器源矩阵，第 \(r\) 列表示第 \(r\) 个阵元的零相位激励。</td>
+      </tr>
+      <tr>
+        <td>\(G=A^{-1}B\)</td>
+        <td>固定场景相位响应基。</td>
+      </tr>
+      <tr>
+        <td>\(a=|u|\)</td>
+        <td>振幅场。</td>
+      </tr>
+      <tr>
+        <td>\(L\)</td>
+        <td>实值优化目标。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>当前 phase-only 前向模型</h2>
+
+  <p>固定障碍物、介质、边界条件、阵元位置和阵元幅值后，系统矩阵不随相位变化：</p>
+
+  \[
+  A u(\phi)=b(\phi)
+  \]
+
+  <p>相位只进入右端项：</p>
+
+  \[
+  b(\phi)=B\exp(i\phi)
+  \]
+
+  <p>预计算响应基：</p>
+
+  \[
+  G=A^{-1}B
+  \]
+
+  <p>在线优化时的完整声场为：</p>
+
+  \[
+  u(\phi)=G\exp(i\phi)
+  \]
+
+  <p>这一步没有自由空间近似；\(G\) 的每一列都是在当前障碍物和边界条件下由完整 PDE 求得的全场响应。</p>
+
+  <h2>复数场到振幅 loss 的导数</h2>
+
+  <p>代码统一先把 loss 对复声场的变化写成：</p>
+
+  \[
+  dL=\operatorname{Re}(c^Hdu)
+  \]
+
+  <p>其中 \(c\) 是传给 <code>PhaseResponseBasis.phase_vjp()</code> 的 <code>field_cotangent</code>。</p>
+
+  <h3>field_match</h3>
+
+  <p>目标是匹配完整目标振幅场：</p>
+
+  \[
+  L=\frac12\sum_j
+  \left[
+  W_j\left(|u_j|-a^{target}_j\right)
+  \right]^2
+  \]
+
+  <p>令 \(r_j=|u_j|-a^{target}_j\)，则：</p>
+
+  \[
+  c_j=
+  W_j^2 r_j
+  \frac{u_j}{|u_j|+\epsilon}
+  \]
+
+  <p>对应代码：</p>
+
+  <pre><code>cotangent = weight * weight * residual * field / (amplitude + eps)</code></pre>
+
+  <h3>focal_pressure</h3>
+
+  <p>目标是直接提高目标点振幅，同时可选压低全局平均能量：</p>
+
+  \[
+  L=
+  -\frac{\alpha}{K}
+  \sum_{k=1}^{K}|u_{t_k}|
+  +
+  \frac{\beta}{2N}
+  \sum_j |u_j|^2
+  \]
+
+  <p>目标点处的 cotangent 为：</p>
+
+  \[
+  c_{t_k}=
+  -\frac{\alpha}{K}
+  \frac{u_{t_k}}{|u_{t_k}|+\epsilon}
+  \]
+
+  <p>背景能量项贡献为：</p>
+
+  \[
+  c_j \mathrel{+}=
+  \frac{\beta}{N}u_j
+  \]
+
+  <h3>focal_contrast</h3>
+
+  <p>当前主推 loss 是目标点振幅与旁瓣参考值的对比：</p>
+
+  \[
+  L=-\alpha\ \mathrm{mean}_{k}(|u_{t_k}|)
+  +\beta\ \mathrm{smoothmax}_{j\in\Omega_{bg}}(|u_j|)
+  \]
+
+  <p>其中背景区域 \(\Omega_{bg}\) 会排除：</p>
+
+  <ul>
+    <li>目标点附近半径 <code>training.target_radius</code> 内的区域。</li>
+    <li>底部源面附近 <code>training.source_exclusion_layers</code> 层网格。</li>
+  </ul>
+
+  <p>平滑最大值使用稳定形式：</p>
+
+  \[
+  m=\max_{j\in\Omega_{bg}} |u_j|
+  \]
+
+  \[
+  p_j=
+  \frac{
+    \exp((|u_j|-m)/T)
+  }{
+    \sum_{\ell\in\Omega_{bg}}
+    \exp((|u_\ell|-m)/T)
+  }
+  \]
+
+  \[
+  \mathrm{smoothmax}
+  =
+  m+
+  T\left[
+    \log\sum_{j\in\Omega_{bg}}
+    \exp((|u_j|-m)/T)
+    -
+    \log|\Omega_{bg}|
+  \right]
+  \]
+
+  <p>背景项 cotangent 为：</p>
+
+  \[
+  c_j \mathrel{+}=
+  \beta p_j
+  \frac{u_j}{|u_j|+\epsilon},
+  \qquad
+  j\in\Omega_{bg}
+  \]
+
+  <h2>响应基下的相位梯度</h2>
+
+  <p>由 \(u=Gw\)、\(w_r=e^{i\phi_r}\) 得：</p>
+
+  \[
+  \frac{\partial u}{\partial\phi_r}
+  =
+  iG_{:,r}e^{i\phi_r}
+  \]
+
+  <p>代入 \(dL=\operatorname{Re}(c^Hdu)\)：</p>
+
+  \[
+  \frac{\partial L}{\partial\phi_r}
+  =
+  \operatorname{Re}
+  \left[
+    c^H
+    \left(
+      iG_{:,r}e^{i\phi_r}
+    \right)
+  \right]
+  \]
+
+  <p>批量计算时先做一次伴随矩阵向量乘：</p>
+
+  \[
+  z=G^Hc
+  \]
+
+  <p>代码中使用的相位梯度为：</p>
+
+  \[
+  \nabla_\phi L
+  =
+  \operatorname{Re}
+  \left[
+    \overline{z}
+    \odot
+    i\exp(i\phi)
+  \right]
+  \]
+
+  <p>对应实现：</p>
+
+  <pre><code>response = basis.conjugate().T @ cotangent
+weights = exp(1j * phases)
+gradient = real(conjugate(response) * (1j * weights))</code></pre>
+
+  <p class="note">这一步常被称为 VJP，因为它没有显式构造 \(N\times M\) 的 Jacobian；只需要一次 \(G^Hc\) 就得到所有相位的梯度。</p>
+
+  <h2>与 PDE 伴随法的关系</h2>
+
+  <p>phase-only 中，矩阵 \(A\) 固定、右端 \(b\) 只依赖相位。响应基把所有在线 PDE 伴随求解提前折叠进 \(G^H\)。因此在线相位优化不需要每轮求解：</p>
+
+  \[
+  A^H\lambda=c
+  \]
+
+  <p>但如果优化变量改变矩阵，例如障碍物姿态、SDF 或材料参数 \(\theta\)，则：</p>
+
+  \[
+  A(\theta)u=b
+  \]
+
+  <p>对参数求导：</p>
+
+  \[
+  A\frac{\partial u}{\partial\theta}
+  =
+  \frac{\partial b}{\partial\theta}
+  -
+  \frac{\partial A}{\partial\theta}u
+  \]
+
+  <p>定义 PDE 伴随变量：</p>
+
+  \[
+  A^H\lambda=c
+  \]
+
+  <p>则参数梯度为：</p>
+
+  \[
+  \frac{dL}{d\theta}
+  =
+  \operatorname{Re}
+  \left[
+    \lambda^H
+    \frac{\partial b}{\partial\theta}
+    -
+    \lambda^H
+    \frac{\partial A}{\partial\theta}
+    u
+  \right]
+  \]
+
+  <p>在障碍物几何/SDF 反演中，通常右端不随障碍物参数变化，即 \(\partial b/\partial\theta=0\)，因此：</p>
+
+  \[
+  \frac{dL}{d\theta}
+  =
+  -
+  \operatorname{Re}
+  \left[
+    \lambda^H
+    \frac{\partial A}{\partial\theta}
+    u
+  \right]
+  \]
+
+  <p class="warn">这部分是未来 obstacle/SDF inversion 的路线。当前代码主线已经实现的是 phase-only 响应基梯度；障碍物参数梯度还需要补齐 \(A\) 对 SDF/姿态参数的可微装配。</p>
+
+  <h2>有限差分验证</h2>
+
+  <p>当前 <code>PhaseOnlyOptimizer.gradient_check()</code> 使用中心差分验证相位梯度：</p>
+
+  \[
+  \frac{\partial L}{\partial\phi_r}
+  \approx
+  \frac{
+    L(\phi+h e_r)-L(\phi-h e_r)
+  }{2h}
+  \]
+
+  <p>配置项：</p>
+
+  <pre><code>training:
+  gradient_check: true
+  gradient_check_step: 1.0e-3</code></pre>
+
+  <p>验证输出会比较：</p>
+
+  <ul>
+    <li><code>adjoint_gradient</code>: 解析 VJP 得到的梯度。</li>
+    <li><code>finite_difference</code>: 中心差分梯度。</li>
+    <li><code>absolute_error</code>: 绝对误差。</li>
+    <li><code>relative_error</code>: 相对误差。</li>
+  </ul>
+
+  <h2>代码对应关系</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>内容</th>
+        <th>实现位置</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>目标振幅场与权重</td>
+        <td><code>src/training/phase_adjoint_optimizer.py</code> 中的 <code>AmplitudeTarget</code> 和 <code>build_gaussian_target_fields()</code></td>
+      </tr>
+      <tr>
+        <td><code>field_match</code> cotangent</td>
+        <td><code>AmplitudeFieldLoss.evaluate()</code></td>
+      </tr>
+      <tr>
+        <td><code>focal_pressure</code> cotangent</td>
+        <td><code>FocalPressureLoss.evaluate()</code></td>
+      </tr>
+      <tr>
+        <td><code>focal_contrast</code> cotangent</td>
+        <td><code>FocalContrastLoss.evaluate()</code></td>
+      </tr>
+      <tr>
+        <td>响应基场合成</td>
+        <td><code>src/training/phase_response_basis.py</code> 中的 <code>PhaseResponseBasis.field()</code></td>
+      </tr>
+      <tr>
+        <td>相位 VJP</td>
+        <td><code>src/training/phase_response_basis.py</code> 中的 <code>PhaseResponseBasis.phase_vjp()</code></td>
+      </tr>
+      <tr>
+        <td>梯度检查</td>
+        <td><code>PhaseOnlyOptimizer.gradient_check()</code></td>
+      </tr>
+      <tr>
+        <td>PDE 伴随求解接口</td>
+        <td><code>src/solvers/helmholtz_solver.py</code> 中的 <code>solve_adjoint()</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>当前结论</h2>
+
+  <ul>
+    <li>固定场景相位优化：已具备解析梯度，在线阶段只需要 \(G\)、\(G^H\) 乘法。</li>
+    <li>梯度验证：通过中心差分比较，能检查符号、共轭和相位链式法则是否正确。</li>
+    <li>障碍物/SDF 反演：需要 PDE 伴随和可微材料装配，不能复用固定响应基。</li>
+  </ul>
+</div>
