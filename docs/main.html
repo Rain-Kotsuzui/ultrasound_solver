@@ -183,7 +183,7 @@
     <header>
       <h1>Ultrasound Solver 文档入口</h1>
       <p class="subtitle">
-        这里汇总三维 Helmholtz 超声场求解器的物理推导、离散格式、边界凝聚直接法、相位响应基训练和工程架构文档。
+        这里汇总三维 Helmholtz 超声场求解器的物理推导、离散格式、Mesh-to-SDF、边界凝聚直接法、相位响应基训练和工程架构文档。
       </p>
       <nav class="quick-links" aria-label="quick links">
         <a href="../README.md">项目 README</a>
@@ -197,8 +197,9 @@
       <ol class="flow">
         <li><strong>1. 物理模型</strong>从可压缩流体方程到声学 Helmholtz 方程。</li>
         <li><strong>2. 离散化</strong>理解网格、7 点 stencil、材料参数和边界项。</li>
-        <li><strong>3. 求解器</strong>了解边界凝聚和整体工程架构。</li>
-        <li><strong>4. 相位优化</strong>查看响应基、loss、梯度推导和验证方法。</li>
+        <li><strong>3. 障碍物</strong>了解 mesh 如何采样为 SDF 并进入材料场。</li>
+        <li><strong>4. 求解器</strong>了解边界凝聚和整体工程架构。</li>
+        <li><strong>5. 相位优化</strong>查看响应基、loss、梯度推导和验证方法。</li>
       </ol>
     </section>
 
@@ -229,6 +230,15 @@
           <div class="tag-row">
             <span class="tag">solver</span>
             <span class="tag">condensation</span>
+          </div>
+        </a>
+
+        <a class="doc-card" href="MESH_TO_SDF.html">
+          <h3>Mesh to SDF</h3>
+          <p>说明如何在 YAML 中配置 mesh 障碍物、几何变换规则、SDF 符号约定、材料插值和调试方法。</p>
+          <div class="tag-row">
+            <span class="tag">mesh</span>
+            <span class="tag">sdf</span>
           </div>
         </a>
 

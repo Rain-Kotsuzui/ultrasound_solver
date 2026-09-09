@@ -130,6 +130,23 @@ python src/visualizer.py outputs/phase_oblique_reflecting_x_12x12/result.npz --c
 - `material.density`: 障碍物密度，单位 `kg/m^3`。
 - `material.sound_speed`: 障碍物声速，单位 `m/s`。
 
+Mesh 障碍物示例：
+
+```yaml
+obstacles:
+  - type: "mesh"
+    file: "meshes/hand.stl"
+    center_m: [0.05, 0.05, 0.045]
+    rotation_deg: [0.0, 90.0, 0.0]
+    scale: 0.001
+    smoothing_width_cells: 1.2
+    material:
+      density: 1250.0
+      sound_speed: 2200.0
+```
+
+`file` 使用相对路径时，以当前 YAML 文件所在目录为基准。mesh 需要是闭合、流形表面；求解器会自动采样为与 `domain.grid_size` 同分辨率的 SDF，且 SDF 内部为负值。详细说明见 `docs/MESH_TO_SDF.html`。
+
 ### `io`
 
 - `output_file`: 结果 `.npz` 输出路径。

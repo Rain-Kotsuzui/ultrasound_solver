@@ -1,0 +1,230 @@
+<div id="mesh-sdf-doc">
+  <style>
+    #mesh-sdf-doc {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 28px 34px 64px;
+      color: #1f2933;
+      background: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.66;
+    }
+
+    #mesh-sdf-doc h1 {
+      margin: 0 0 18px;
+      font-size: 30px;
+      line-height: 1.25;
+    }
+
+    #mesh-sdf-doc h2 {
+      margin-top: 34px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #d8dee4;
+      font-size: 22px;
+    }
+
+    #mesh-sdf-doc h3 {
+      margin-top: 24px;
+      font-size: 18px;
+    }
+
+    #mesh-sdf-doc code {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: #f3f4f6;
+      font-family: Consolas, "SFMono-Regular", monospace;
+      font-size: 0.94em;
+    }
+
+    #mesh-sdf-doc pre {
+      padding: 14px 16px;
+      overflow: auto;
+      border-radius: 6px;
+      background: #f6f8fa;
+    }
+
+    #mesh-sdf-doc pre code {
+      padding: 0;
+      background: transparent;
+    }
+
+    #mesh-sdf-doc table {
+      width: 100%;
+      margin: 14px 0 20px;
+      border-collapse: collapse;
+    }
+
+    #mesh-sdf-doc th,
+    #mesh-sdf-doc td {
+      padding: 8px 10px;
+      border: 1px solid #d8dee4;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    #mesh-sdf-doc th {
+      background: #f6f8fa;
+    }
+
+    #mesh-sdf-doc .note {
+      padding: 10px 14px;
+      border-left: 4px solid #2563eb;
+      background: #eff6ff;
+    }
+
+    #mesh-sdf-doc .warn {
+      padding: 10px 14px;
+      border-left: 4px solid #b45309;
+      background: #fff7ed;
+    }
+  </style>
+
+  <h1>Mesh to SDF 使用说明</h1>
+
+  <p class="note">当前 mesh-to-SDF 不是单独的命令行工具，而是通过 YAML 配置中的 <code>obstacles</code> 自动触发。只要障碍物类型设为 <code>mesh</code>，求解器在装配矩阵前会调用 <code>src/physics/mesh_to_sdf.py</code>，把闭合三角网格采样为与求解域同分辨率的 SDF。</p>
+
+  <h2>基本流程</h2>
+
+  <ol>
+    <li>准备一个闭合、流形的表面 mesh 文件。</li>
+    <li>在 YAML 的 <code>obstacles</code> 中配置 <code>type: "mesh"</code>。</li>
+    <li>运行 <code>python src/main.py --config ...</code>。</li>
+    <li>求解器自动读取 mesh、执行变换、采样 SDF、生成材料场，并参与 Helmholtz 矩阵装配。</li>
+  </ol>
+
+  <p>入口调用链为：</p>
+
+  <pre><code>SimulationConfig.from_yaml()
+  -> 解析 mesh 文件路径
+HelmholtzDirectSolver.assemble_matrix()
+  -> mesh_to_sdf(...)
+WarpAssemblyEngine.assemble_system_gpu()
+  -> compute_material_fields_sdf_kernel(...)</code></pre>
+
+  <h2>YAML 配置示例</h2>
+
+  <pre><code>obstacles:
+  - type: "mesh"
+    file: "meshes/hand.stl"
+    center_m: [0.05, 0.05, 0.045]
+    rotation_deg: [0.0, 90.0, 0.0]
+    scale: 0.001
+    smoothing_width_cells: 1.2
+    material:
+      density: 1250.0
+      sound_speed: 2200.0</code></pre>
+
+  <p>其中 <code>file</code> 如果使用相对路径，会按当前 YAML 文件所在目录解析。例如配置位于 <code>src/examples/config.yaml</code>，则 <code>file: "meshes/hand.stl"</code> 会解析为 <code>src/examples/meshes/hand.stl</code>。</p>
+
+  <h2>参数定义</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>字段</th>
+        <th>含义</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>type</code></td>
+        <td>障碍物类型。mesh 障碍物必须写为 <code>"mesh"</code>。</td>
+      </tr>
+      <tr>
+        <td><code>file</code></td>
+        <td>mesh 文件路径。支持 PyVista 可读取的表面网格格式，例如 STL、OBJ、PLY、VTK 等。</td>
+      </tr>
+      <tr>
+        <td><code>center_m</code></td>
+        <td>变换后 mesh 轴对齐包围盒中心在求解域中的位置，单位 <code>m</code>。</td>
+      </tr>
+      <tr>
+        <td><code>rotation_deg</code></td>
+        <td>绕 X、Y、Z 轴的旋转角，单位 <code>deg</code>。实现中组合矩阵为 \(R_z R_y R_x\)，等价于先绕 X，再绕 Y，再绕 Z 应用到点坐标。</td>
+      </tr>
+      <tr>
+        <td><code>scale</code></td>
+        <td>mesh 原始单位到米的统一缩放比例。例如原始模型单位是 mm 时，通常设为 <code>0.001</code>。</td>
+      </tr>
+      <tr>
+        <td><code>smoothing_width_cells</code></td>
+        <td>SDF 到材料参数插值时的平滑半宽，单位为网格单元数。设为 <code>0</code> 表示硬界面。</td>
+      </tr>
+      <tr>
+        <td><code>material.density</code></td>
+        <td>障碍物密度，单位 <code>kg/m^3</code>。</td>
+      </tr>
+      <tr>
+        <td><code>material.sound_speed</code></td>
+        <td>障碍物声速，单位 <code>m/s</code>。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>几何变换规则</h2>
+
+  <p><code>mesh_to_sdf()</code> 对 mesh 执行以下变换：</p>
+
+  <ol>
+    <li>读取 mesh 并提取三角化表面。</li>
+    <li>用原始 mesh 的轴对齐包围盒中心作为局部中心。</li>
+    <li>将点坐标平移到局部中心附近。</li>
+    <li>乘以统一缩放 <code>scale</code>。</li>
+    <li>按 <code>rotation_deg</code> 旋转。</li>
+    <li>计算旋转后包围盒中心，并平移到 <code>center_m</code>。</li>
+  </ol>
+
+  <p>因此 <code>center_m</code> 控制的是最终包围盒中心，不一定是 mesh 原始坐标系的语义中心。</p>
+
+  <h2>SDF 符号和材料插值</h2>
+
+  <p>生成的 SDF 与求解器网格同形状：</p>
+
+  <pre><code>(nx, ny, nz)</code></pre>
+
+  <p>符号约定为：</p>
+
+  <ul>
+    <li><code>sdf &lt; 0</code>: mesh 内部。</li>
+    <li><code>sdf = 0</code>: mesh 表面。</li>
+    <li><code>sdf &gt; 0</code>: mesh 外部。</li>
+  </ul>
+
+  <p>材料场通过 smooth Heaviside 从障碍物物性过渡到背景空气物性：</p>
+
+  <pre><code>epsilon = smoothing_width_cells * dx</code></pre>
+
+  <p>当 <code>smoothing_width_cells &gt; 0</code> 时，界面附近会有平滑过渡层；当设为 <code>0</code> 时，使用硬阈值界面。</p>
+
+  <h2>mesh 质量要求</h2>
+
+  <p>输入 mesh 必须满足：</p>
+
+  <ul>
+    <li>表面可被 PyVista 读取。</li>
+    <li>至少包含可用的闭合表面。</li>
+    <li>顶点坐标不能包含 NaN 或 infinite。</li>
+    <li>必须 watertight，没有 open edges。</li>
+    <li>必须 manifold，没有 non-manifold edges。</li>
+  </ul>
+
+  <p>如果 mesh 不闭合或非流形，代码会直接报错，避免生成符号不可靠的 SDF。</p>
+
+  <h2>当前限制</h2>
+
+  <ul>
+    <li>当前求解器一次只支持一个障碍物；多个 <code>obstacles</code> 会触发 <code>NotImplementedError</code>。</li>
+    <li>mesh 可以部分超出求解域，域外部分不会采样；如果整个 mesh 都在域外，会给出 warning。</li>
+    <li>如果网格没有任何采样点落在 mesh 内部，会给出 warning，说明网格分辨率、缩放或位置可能不合适。</li>
+    <li>响应基缓存会记录 mesh 文件内容哈希；mesh 文件变化后，旧响应基不能复用。</li>
+  </ul>
+
+  <h2>调试建议</h2>
+
+  <ul>
+    <li>先用较低网格分辨率确认 mesh 的 <code>center_m</code>、<code>rotation_deg</code> 和 <code>scale</code> 是否合理。</li>
+    <li>运行结果 `.npz` 中会保存 <code>sdf</code> 字段时，可用 <code>src/visualizer.py</code> 查看障碍物表面。</li>
+    <li>如果看不到障碍物，优先检查单位缩放、mesh 是否在求解域内、以及网格是否太粗。</li>
+    <li>手部模型侧向伸入时，当前实验约定使用 <code>rotation_deg: [0.0, 90.0, 0.0]</code>。</li>
+  </ul>
+</div>

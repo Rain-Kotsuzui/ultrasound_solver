@@ -1,71 +1,99 @@
 # Ultrasound Solver
 
-这是一个三维变参数 Helmholtz 超声场求解与相位优化项目。当前核心目标是在给定障碍物、介质分布和边界条件时，求解完整三维复声场，并优化换能器阵列相位，使指定目标点或目标区域产生更强的振幅聚焦，同时抑制非目标区域旁瓣。
+三维变参数 Helmholtz 超声场求解与相位优化项目。
 
-## 当前能力
+项目当前主线是在固定障碍物、介质分布、边界条件和换能器幅值的场景下，求解完整三维复声压场，并优化换能器阵列相位，使指定目标点或目标区域形成更强振幅聚焦，同时抑制非目标区域旁瓣。
 
-- 三维 7 点 stencil Helmholtz 方程离散。
-- 支持 Dirichlet 换能器边界、Sommerfeld 开放边界和 reflecting 刚性反射边界。
-- 支持障碍物 SDF 与材料参数进入矩阵装配。
-- 支持三种求解后端：
-  - `gpu_iterative`
-  - `gpu_direct`
-  - `cudss_hybrid_direct`
-- 支持边界凝聚直接法，降低大网格直接求解显存占用。
-- 支持固定场景下的相位响应基：
-  ```text
-  u(phi) = G exp(i phi)
-  ```
-- 支持 `phase_only` 相位优化，以及传统几何相位 baseline 对比。
-- 支持 PyVista 交互式三维可视化。
+## 核心能力
+
+- 三维 Helmholtz 方程 7 点 stencil 离散。
+- 支持变密度、变声速介质和基于 SDF 的障碍物建模。
+- 支持换能器 Dirichlet 激励边界、Sommerfeld open 边界和 reflecting 刚性反射边界。
+- 支持多种求解后端：`gpu_iterative`、`gpu_direct`、`cudss_hybrid_direct`。
+- 支持边界凝聚直接法，降低大规模直接求解的显存压力。
+- 支持固定场景的相位响应基：
+
+```text
+u(phi) = G exp(i phi)
+```
+
+- 支持 phase-only 相位优化，包括 `field_match`、`focal_pressure`、`focal_contrast` 等目标。
+- 支持传统几何相位 baseline 对比，并可在同一 PyVista 窗口中红蓝等值面对照显示。
+- 支持目标振幅场自动生成、有限差分梯度检查和交互式三维可视化。
 
 ## 仓库结构
 
 ```text
-src/                         源码、代码使用说明和示例配置
-  README.md                  代码运行说明
-  main.py                    baseline / inverse 主入口
-  visualizer.py              交互式三维可视化入口
+src/
+  README.md                  代码运行说明和 config 参数定义
+  main.py                    主入口：baseline / inverse 流程
+  visualizer.py              PyVista 交互式可视化入口
   config.py                  YAML 配置解析
-  examples/                  默认配置与可复现实验配置
+  examples/                  默认配置和可复现实验配置
   solvers/                   Helmholtz 线性系统求解后端
-  physics/                   阵列、SDF、Warp 矩阵/RHS 装配
-  training/                  相位响应基、loss、梯度和优化器
+  physics/                   换能器、SDF、矩阵和 RHS 装配
+  training/                  响应基、loss、梯度和优化器
 
-docs/                        数学推导、求解器原理和实现路线
-outputs/                     响应基、优化结果等运行产物，不提交
-obstacle_displacement_study/ 障碍物轻移实验与可视化结果
-requirements.txt             Python 依赖
+docs/
+  main.html                  文档总入口
+  *.html                     物理推导、离散化、边界凝聚、梯度和架构文档
+
+obstacle_displacement_study/ 障碍物轻移实验脚本与结果整理
+outputs/                     响应基、优化结果和可视化产物，不提交
+requirements.txt             Python 依赖列表
 ```
 
-## 快速入口
+## 快速使用
 
-代码运行方式见：
+详细运行方式和 config 参数定义见：
 
-[src/README.md](src/README.md)
+- [`src/README.md`](src/README.md)
 
-推荐相位优化示例：
+运行默认配置：
+
+```powershell
+python src/main.py
+```
+
+运行远斜向目标点、`+x` 反射边界、传统方法对比示例：
 
 ```powershell
 python src/main.py --config src/examples/phase_oblique_reflecting_x_12x12.yaml
 ```
 
-红蓝对比可视化：
+同屏查看传统几何相位与优化相位结果：
 
 ```powershell
 python src/visualizer.py outputs/phase_oblique_reflecting_x_12x12/result.npz --compare-methods --percentile 95 --hide-source-layers 4
 ```
 
-## 文档索引
+## 文档
 
-- `docs/main.html`：文档总入口，可跳转到各个专题页面。
-- `docs/ACOUSTIC_PHYSICS_DERIVATION.html`：从流体力学到声学 Helmholtz 方程。
-- `docs/HELMHOLTZ_DISCRETIZATION.html`：离散化和矩阵组装细节。
-- `docs/BOUNDARY_CONDENSATION.html`：边界凝聚直接法原理。
-- `docs/PHASE_ONLY_TRAINING.html`：纯相位响应基训练模式。
-- `docs/GRADIENT_DERIVATION.html`：相位 VJP、振幅 loss 导数、PDE 伴随梯度和有限差分验证。
-- `docs/SOLVER_ARCHITECTURE.html`：求解器架构。
+建议从文档总入口开始阅读：
 
-## 运行产物
+- [`docs/main.html`](docs/main.html)
 
-`outputs/`、`.npy`、`.npz` 和可视化截图属于运行产物，默认不提交。可复现实验配置应保存在 `src/examples/` 中。
+主要专题文档：
+
+- [`docs/ACOUSTIC_PHYSICS_DERIVATION.html`](docs/ACOUSTIC_PHYSICS_DERIVATION.html)：从流体力学到声学 Helmholtz 方程。
+- [`docs/HELMHOLTZ_DISCRETIZATION.html`](docs/HELMHOLTZ_DISCRETIZATION.html)：离散化、矩阵装配和边界处理。
+- [`docs/MESH_TO_SDF.html`](docs/MESH_TO_SDF.html)：mesh 障碍物配置、几何变换、SDF 采样和材料插值。
+- [`docs/BOUNDARY_CONDENSATION.html`](docs/BOUNDARY_CONDENSATION.html)：边界凝聚直接法。
+- [`docs/PHASE_ONLY_TRAINING.html`](docs/PHASE_ONLY_TRAINING.html)：固定场景下的相位响应基训练。
+- [`docs/GRADIENT_DERIVATION.html`](docs/GRADIENT_DERIVATION.html)：振幅 loss 导数、相位 VJP、PDE 伴随梯度和有限差分验证。
+- [`docs/SOLVER_ARCHITECTURE.html`](docs/SOLVER_ARCHITECTURE.html)：求解器架构和模块边界。
+
+## 典型工作流
+
+1. 在 `src/examples/` 中选择或复制一个 YAML 配置。
+2. 设置求解域、阵列规模、障碍物、边界条件和目标点。
+3. 使用 `python src/main.py --config ...` 运行前向求解或 phase-only 优化。
+4. 使用 `src/visualizer.py` 查看 `.npz` 结果文件。
+5. 将可复现实验配置保留在 `src/examples/`，将运行产物保留在 `outputs/`。
+
+## 产物约定
+
+- `outputs/`、`.npy`、`.npz`、响应基缓存和截图属于运行产物，默认不提交。
+- 可复现实验应提交 YAML 配置，而不是提交大型结果文件。
+- `src/README.md` 只维护代码使用方式和 config 参数定义。
+- 根目录 `README.md` 只维护项目概览、结构和文档入口。
