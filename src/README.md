@@ -123,6 +123,9 @@ algorithm_options:
 - `iterations`: 优化迭代次数。
 - `max_evaluations`: 单次任务可用的总声场评估次数上限；GABS、SPSA、RL、CMA-ES 和伴随法都使用此上限。
 - `seed`: 随机算法与 RL 的随机种子。
+- `show_loss_curve`: 是否在相位优化时显示实时 loss 曲线窗口。
+- `loss_curve_update_interval`: 每隔多少次真实场评估刷新曲线；横轴始终是场评估次数。
+- `loss_curve_pause_seconds`: 每次 GUI 刷新的短暂停顿，单位 `s`。
 
 ### `algorithm_options`
 

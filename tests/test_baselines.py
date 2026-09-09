@@ -6,6 +6,7 @@ import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 import yaml
@@ -29,6 +30,7 @@ def config(algorithm="adjoint", loss="focal_pressure"):
             initial_phase="zero", loss_type=loss, background_weight=0,
             iterations=8, max_evaluations=100,
             target_radius=0.01, source_exclusion_layers=0, load_basis_to_gpu=False,
+            show_loss_curve=False,
         ),
     )
 
@@ -119,6 +121,16 @@ class BaselineTests(unittest.TestCase):
         cfg.algorithm = "unknown"
         with self.assertRaises(ValueError):
             validate_algorithm(cfg)
+
+    def test_live_loss_curve_receives_all_evaluations(self):
+        cfg = config("spsa")
+        cfg.training.show_loss_curve = True
+        cfg.training.iterations = 2
+        with patch("baselines.loss_curve.LiveLossCurve") as curve_class:
+            curve = curve_class.return_value
+            problem, result = run(cfg, ToyBasis(cfg))
+        self.assertEqual(curve.update.call_count, problem.field_evaluations)
+        curve.finalize.assert_called_once_with(result.termination_reason)
         cfg.algorithm = "spsa"
         cfg.algorithm_options = {"typo": 3}
         with self.assertRaises(ValueError):

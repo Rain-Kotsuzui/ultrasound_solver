@@ -94,6 +94,13 @@ class PhaseProblem:
         self.best = None
         self.last = None
         self.started = time.perf_counter()
+        from baselines.loss_curve import LiveLossCurve
+
+        self.loss_curve = LiveLossCurve(
+            cfg.training.show_loss_curve,
+            cfg.training.loss_curve_update_interval,
+            cfg.training.loss_curve_pause_seconds,
+        )
 
     def _initial_phases(self):
         mode = self.cfg.training.initial_phase
@@ -164,6 +171,7 @@ class PhaseProblem:
             **evaluation.metrics,
         }
         self.history.append(row)
+        self.loss_curve.update(row)
         print(f"[{self.cfg.algorithm}] eval={self.field_evaluations:05d} "
               f"stage={stage} loss={loss:.6e} best={self.best.loss:.6e} "
               f"target={row['target_mean']:.3f} background={row['background_max']:.3f}")
@@ -187,6 +195,7 @@ class PhaseProblem:
     def result(self, final, reason, **metadata):
         if final is None or self.best is None:
             raise RuntimeError("Algorithm returned no evaluated candidate")
+        self.loss_curve.finalize(reason)
         return AlgorithmResult(
             final, self.best, list(self.history), reason,
             {"field_evaluations": self.field_evaluations,

@@ -69,10 +69,13 @@ def execute(cfg):
                 initial_amplitude=np.abs(initial_field),
                 target_amplitude=problem.target.target, target_weight=problem.target.weight,
                 loss_history=np.array([row["loss"] for row in result.history]),
+                best_loss_history=np.array([row["best_loss"] for row in result.history]),
                 gradient_norm_history=np.array([
                     np.nan if row["gradient_norm"] is None else row["gradient_norm"]
                     for row in result.history]),
                 evaluation_history=np.array([row["evaluation"] for row in result.history]),
+                elapsed_seconds_history=np.array([
+                    row["elapsed_seconds"] for row in result.history]),
             )
             if cfg.training.compare_geometric:
                 phases = solver.transducers.compute_geometric_phases()

@@ -53,6 +53,9 @@ training:
   iterations: 300
   max_evaluations: 10000
   seed: 0
+  show_loss_curve: true
+  loss_curve_update_interval: 1
+  loss_curve_pause_seconds: 0.01
 
 boundary_conditions:
   "-x": "open"
