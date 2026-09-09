@@ -14,8 +14,8 @@ class TransducerArray:
         
         # 初始发射相位
         self.phases = np.zeros(self.num_transducers, dtype=np.float64)
-        if self.cfg.mode == "baseline":
-            self.phases = self._compute_baseline_phases()
+        if self.cfg.mode in {"same_phase", "sdf_inverse"}:
+            self.phases.fill(self.cfg.same_phase_rad)
 
     def _compute_transducer_centers(self) -> np.ndarray:
         """计算 N*N 阵元在底面 (z = 0) 的中心物理坐标 [x, y, 0]"""
@@ -32,13 +32,13 @@ class TransducerArray:
                 centers.append([x, y, 0.0])
         return np.array(centers, dtype=np.float64)
 
-    def _compute_baseline_phases(self) -> np.ndarray:
+    def compute_geometric_phases(self) -> np.ndarray:
         """
-        Baseline 模式下的多目标时间反转加权复数场叠加:
+        多目标几何相位的加权复数场叠加:
         U_i = sum_m (1 / d_im) * exp(-i * k0 * d_im)
         phi_i = arg(U_i)
         """
-        print("Computing baseline phases...")
+        print("Computing geometric phases...")
         targets = self.cfg.targets
         if not targets:
             return np.zeros(self.num_transducers, dtype=np.float64)

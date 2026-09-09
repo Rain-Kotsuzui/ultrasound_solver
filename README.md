@@ -17,8 +17,8 @@
 u(phi) = G exp(i phi)
 ```
 
-- 支持 phase-only 相位优化，包括 `field_match`、`focal_pressure`、`focal_contrast` 等目标。
-- 支持传统几何相位 baseline 对比，并可在同一 PyVista 窗口中红蓝等值面对照显示。
+- 支持相位算法选择：伴随梯度、几何相位、响应对齐、GABS、SPSA，以及可选 SAC、PPO、CMA-ES。
+- 支持 `field_match`、`focal_pressure`、`focal_contrast` 等目标，并可在同一 PyVista 窗口中红蓝等值面对照几何相位与优化结果。
 - 支持目标振幅场自动生成、有限差分梯度检查和交互式三维可视化。
 
 ## 仓库结构
@@ -26,13 +26,14 @@ u(phi) = G exp(i phi)
 ```text
 src/
   README.md                  代码运行说明和 config 参数定义
-  main.py                    主入口：baseline / inverse 流程
+  main.py                    主入口：相位优化、同相位和预留 SDF 反演模式
   visualizer.py              PyVista 交互式可视化入口
   config.py                  YAML 配置解析
   examples/                  默认配置和可复现实验配置
   solvers/                   Helmholtz 线性系统求解后端
   physics/                   换能器、SDF、矩阵和 RHS 装配
-  training/                  响应基、loss、梯度和优化器
+  training/                  响应基、目标场、loss 和梯度公式
+  baselines/                 可选相位算法及统一评估接口
 
 docs/
   main.html                  文档总入口
@@ -82,6 +83,7 @@ python src/visualizer.py outputs/phase_oblique_reflecting_x_12x12/result.npz --c
 - [`docs/PHASE_ONLY_TRAINING.html`](docs/PHASE_ONLY_TRAINING.html)：固定场景下的相位响应基训练。
 - [`docs/GRADIENT_DERIVATION.html`](docs/GRADIENT_DERIVATION.html)：振幅 loss 导数、相位 VJP、PDE 伴随梯度和有限差分验证。
 - [`docs/SOLVER_ARCHITECTURE.html`](docs/SOLVER_ARCHITECTURE.html)：求解器架构和模块边界。
+- [`docs/BASELINE_COMPARISON_PLAN.md`](docs/BASELINE_COMPARISON_PLAN.md)：相位算法对比口径、预算和实施状态。
 
 ## 典型工作流
 

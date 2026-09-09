@@ -13,7 +13,7 @@ def build_parser():
         "--field",
         choices=[
             "amplitude",
-            "baseline_amplitude",
+            "geometric_amplitude",
             "initial_amplitude",
             "target_amplitude",
             "abs_error",
@@ -62,7 +62,7 @@ def available_scalar_fields(data) -> list[str]:
     fields = []
     for key in (
         "amplitude",
-        "baseline_amplitude",
+        "geometric_amplitude",
         "initial_amplitude",
         "target_amplitude",
     ):
@@ -92,7 +92,7 @@ def select_scalar_field(data, field_name: str, use_sq: bool):
         return field, "Intensity (|p|²)", "Pa²"
     titles = {
         "amplitude": "Amplitude optimized |p|",
-        "baseline_amplitude": "Amplitude baseline |p|",
+        "geometric_amplitude": "Amplitude geometric phase |p|",
         "initial_amplitude": "Amplitude initial |p|",
         "target_amplitude": "Target amplitude",
     }
@@ -203,15 +203,15 @@ def show_method_comparison_scene(
     hide_source_layers: int = 0,
 ):
     data = np.load(result_path, allow_pickle=True)
-    if "baseline_amplitude" not in data:
+    if "geometric_amplitude" not in data:
         data.close()
         raise ValueError(
-            "comparison requires baseline_amplitude in the result file"
+            "comparison requires geometric_amplitude in the result file"
         )
 
-    baseline = _copy_scalar_field(
+    geometric = _copy_scalar_field(
         data,
-        "baseline_amplitude",
+        "geometric_amplitude",
         hide_source_layers,
     )
     optimized = _copy_scalar_field(
@@ -228,14 +228,14 @@ def show_method_comparison_scene(
         spacing=(dx, dx, dx),
         origin=(0, 0, 0),
     )
-    grid.point_data["BaselineAmplitude"] = baseline.flatten(order="F")
+    grid.point_data["GeometricAmplitude"] = geometric.flatten(order="F")
     grid.point_data["OptimizedAmplitude"] = optimized.flatten(order="F")
 
-    baseline_min = float(np.nanmin(baseline))
-    baseline_max = float(np.nanmax(baseline))
+    geometric_min = float(np.nanmin(geometric))
+    geometric_max = float(np.nanmax(geometric))
     optimized_min = float(np.nanmin(optimized))
     optimized_max = float(np.nanmax(optimized))
-    baseline_level = float(np.nanpercentile(baseline, percentile))
+    geometric_level = float(np.nanpercentile(geometric, percentile))
     optimized_level = float(np.nanpercentile(optimized, percentile))
 
     plotter = pv.Plotter(window_size=[1366, 860])
@@ -243,15 +243,15 @@ def show_method_comparison_scene(
     plotter.enable_anti_aliasing("msaa")
     _add_static_scene_context(plotter, grid, data, lx, ly, lz, dx)
 
-    baseline_actor_name = "baseline_red_isosurface"
+    geometric_actor_name = "geometric_red_isosurface"
     optimized_actor_name = "optimized_blue_isosurface"
     plotter.add_mesh(
-        grid.contour([baseline_level], scalars="BaselineAmplitude"),
-        name=baseline_actor_name,
+        grid.contour([geometric_level], scalars="GeometricAmplitude"),
+        name=geometric_actor_name,
         color="#ff1744",
         opacity=0.46,
         smooth_shading=True,
-        label="Baseline geometric phase",
+        label="Geometric phase",
     )
     plotter.add_mesh(
         grid.contour([optimized_level], scalars="OptimizedAmplitude"),
@@ -263,8 +263,8 @@ def show_method_comparison_scene(
     )
 
     hud_actor = plotter.add_text(
-        "Baseline red vs optimized blue\n"
-        f"Red level: {baseline_level:.1f} Pa / max {baseline_max:.1f} Pa\n"
+        "Geometric red vs optimized blue\n"
+        f"Red level: {geometric_level:.1f} Pa / max {geometric_max:.1f} Pa\n"
         f"Blue level: {optimized_level:.1f} Pa / max {optimized_max:.1f} Pa",
         position="upper_left",
         font_size=11,
@@ -273,23 +273,23 @@ def show_method_comparison_scene(
     )
 
     levels = {
-        "baseline": baseline_level,
+        "geometric": geometric_level,
         "optimized": optimized_level,
     }
 
     def refresh_hud():
         hud_actor.SetText(
             0,
-            "Baseline red vs optimized blue\n"
-            f"Red level: {levels['baseline']:.1f} Pa / max {baseline_max:.1f} Pa\n"
+            "Geometric red vs optimized blue\n"
+            f"Red level: {levels['geometric']:.1f} Pa / max {geometric_max:.1f} Pa\n"
             f"Blue level: {levels['optimized']:.1f} Pa / max {optimized_max:.1f} Pa",
         )
 
-    def baseline_slider_callback(value):
-        levels["baseline"] = float(value)
+    def geometric_slider_callback(value):
+        levels["geometric"] = float(value)
         plotter.add_mesh(
-            grid.contour([float(value)], scalars="BaselineAmplitude"),
-            name=baseline_actor_name,
+            grid.contour([float(value)], scalars="GeometricAmplitude"),
+            name=geometric_actor_name,
             color="#ff1744",
             opacity=0.46,
             smooth_shading=True,
@@ -310,10 +310,10 @@ def show_method_comparison_scene(
         refresh_hud()
 
     plotter.add_slider_widget(
-        callback=baseline_slider_callback,
-        rng=[baseline_min, baseline_max],
-        value=baseline_level,
-        title="Baseline red threshold (Pa)",
+        callback=geometric_slider_callback,
+        rng=[geometric_min, geometric_max],
+        value=geometric_level,
+        title="Geometric red threshold (Pa)",
         pointa=(0.04, 0.92),
         pointb=(0.36, 0.92),
         color="#ff1744",

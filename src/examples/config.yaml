@@ -1,4 +1,13 @@
-mode: "baseline"             # baseline / inverse
+# phase_optimization: 根据 algorithm 优化阵元相位
+# same_phase: 所有阵元固定 same_phase_rad，用于前向敏感性实验
+# sdf_inverse: 预留的 SDF 反演入口（尚未实现）
+mode: "phase_optimization"
+algorithm: "adjoint"         # adjoint / geometric / response_alignment / gabs / spsa / sac / ppo / cmaes
+algorithm_options:
+  optimizer: "adam"          # 仅 algorithm: adjoint 使用
+  learning_rate: 0.05
+  gradient_check: false
+  gradient_check_step: 1.0e-3
 
 # 1. 背景物理介质参数 (20°C 空气)
 physics:
@@ -35,12 +44,11 @@ solver:
   gmres_backward_error_tol: 1.0e-4 # 原系统后向误差阈值
   reuse_matrix: true               # 仅相位变化时跳过矩阵与介质场重装配
 
-# 5. 逆向训练配置
+# 5. 相位优化目标、响应基与评估预算
 training:
-  mode: "phase_only"               # phase_only / obstacle_distribution
   loss_type: "field_match"         # field_match / focal_pressure / focal_contrast
-  initial_phase: "baseline"        # baseline / response / current / zero
-  compare_baseline: false          # 是否额外保存传统几何相位场用于对比可视化
+  initial_phase: "geometric"       # geometric / response / current / zero / random
+  compare_geometric: false         # 是否额外保存几何相位场用于红蓝对比可视化
   phase_basis_file: "phase_response_basis.npy"
   phase_basis_batch_size: 8        # 每批构建的阵元 RHS 数
   voxel_chunk_size: 262144         # CPU 合成与 VJP 的体素分块大小
@@ -56,11 +64,9 @@ training:
   target_radius: 0.006             # focal_contrast 中从旁瓣区域排除的目标半径 (m)
   source_exclusion_layers: 4       # focal_contrast/可视化中忽略的底部源面网格层数
   sidelobe_temperature: 25.0       # focal_contrast 平滑最大旁瓣温度 (Pa)
-  optimizer: "adam"                # adam / lbfgsb
-  learning_rate: 0.05              # 相位优化学习率
   iterations: 100                  # 相位优化迭代次数
-  gradient_check: false            # 是否在优化前检查相位梯度
-  gradient_check_step: 1.0e-3      # 中心差分相位步长 (rad)
+  max_evaluations: 10000           # 全部算法共享的场评估次数上限
+  seed: 0                          # GABS、SPSA、RL、CMA-ES 的随机种子
 
 # 6. 6 面边界条件 (reflecting: 刚性全反射 | open: 自由辐射 Sommerfeld ABC)
 boundary_conditions:

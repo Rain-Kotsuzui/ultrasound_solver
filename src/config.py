@@ -70,10 +70,9 @@ class IOConfig:
 
 @dataclass
 class TrainingConfig:
-    mode: str = "phase_only"
     loss_type: str = "field_match"
-    initial_phase: str = "baseline"
-    compare_baseline: bool = False
+    initial_phase: str = "geometric"
+    compare_geometric: bool = False
     phase_basis_file: str = "phase_response_basis.npy"
     phase_basis_batch_size: int = 8
     voxel_chunk_size: int = 262144
@@ -88,11 +87,9 @@ class TrainingConfig:
     target_radius: float = 0.006
     source_exclusion_layers: int = 4
     sidelobe_temperature: float = 25.0
-    optimizer: str = "adam"
-    learning_rate: float = 0.05
     iterations: int = 100
-    gradient_check: bool = False
-    gradient_check_step: float = 1.0e-3
+    seed: int = 0
+    max_evaluations: int = 10000
 
 
 @dataclass
@@ -107,6 +104,17 @@ class SimulationConfig:
     io: IOConfig
     training: TrainingConfig = field(default_factory=TrainingConfig)
     solver: Dict[str, Union[str, int, float, bool]] = field(default_factory=dict)
+    algorithm: str = "adjoint"
+    algorithm_options: dict = field(default_factory=dict)
+    same_phase_rad: float = 0.0
+
+    def __post_init__(self):
+        if self.mode not in {"phase_optimization", "same_phase", "sdf_inverse"}:
+            raise ValueError("mode must be phase_optimization, same_phase or sdf_inverse")
+        if not np.isfinite(self.same_phase_rad):
+            raise ValueError("same_phase_rad must be finite")
+        if not isinstance(self.algorithm_options, dict):
+            raise ValueError("algorithm_options must be a mapping")
 
     @property
     def frequency(self) -> float:
@@ -148,6 +156,9 @@ class SimulationConfig:
         with open(yaml_path, "r", encoding="utf-8") as f:
             raw = yaml.safe_load(f)
 
+        training = dict(raw.get("training", {}))
+        mode = str(raw.get("mode", "phase_optimization")).lower()
+        algorithm = str(raw.get("algorithm", "adjoint")).lower()
         targets_list = [t["point"] for t in raw.get("targets", [])]
         obstacles = []
         for item in raw.get("obstacles", []):
@@ -164,7 +175,7 @@ class SimulationConfig:
             obstacles.append(obstacle)
 
         return cls(
-            mode=raw.get("mode", "baseline").lower(),
+            mode=mode,
             physics=PhysicsConfig(**raw["physics"]),
             specs=TransducerSpecsConfig(**raw["transducer_specs"]),
             domain=DomainConfig(**raw["domain"]),
@@ -172,6 +183,9 @@ class SimulationConfig:
             targets=targets_list,
             obstacles=obstacles,
             io=IOConfig(**raw.get("io", {})),
-            training=TrainingConfig(**raw.get("training", {})),
-            solver=raw.get("solver", {})
+            training=TrainingConfig(**training),
+            solver=raw.get("solver", {}),
+            algorithm=algorithm,
+            algorithm_options=raw.get("algorithm_options", {}),
+            same_phase_rad=float(raw.get("same_phase_rad", 0.0)),
         )

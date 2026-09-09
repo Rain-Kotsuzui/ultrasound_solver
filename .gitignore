@@ -7,6 +7,7 @@ phase_response_basis.npy
 phase_response_basis.npy.json
 phase_response_basis.npy.json.tmp
 outputs/
+outputs/baseline_test_deps/
 *.npz
 *_basis.npy
 *_basis.npy.json

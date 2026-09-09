@@ -1,218 +1,131 @@
+"""Run a configured phase algorithm or a fixed equal-phase forward experiment."""
+
 import argparse
 import json
+from pathlib import Path
+import time
+
 import numpy as np
+
 from config import SimulationConfig
-from solvers.helmholtz_solver import HelmholtzDirectSolver
-from training.phase_adjoint_optimizer import PhaseOnlyOptimizer
-from visualizer import show_pyvista_scene
+from baselines import ALGORITHMS, run, validate_algorithm
 
 
-def evaluate_targets(amplitude_field: np.ndarray, targets: list, dx: float):
-    pressures = []
-    print("\n" + "="*65)
-    print("【多焦点声压与均匀度评测指标】")
-    for idx, pt in enumerate(targets):
-        i = int(round(pt[0] / dx))
-        j = int(round(pt[1] / dx))
-        k = int(round(pt[2] / dx))
-        p_val = amplitude_field[i, j, k]
-        pressures.append(p_val)
-        print(f"  --> 焦点 {idx+1} {pt}: 声压幅值 = {p_val:.2f} Pa")
-
-    pressures = np.array(pressures)
-    mean_p = np.mean(pressures)
-    min_p = np.min(pressures)
-    max_p = np.max(pressures)
-    
-    uniformity = (min_p / max_p) if max_p > 0 else 0.0
-    cv = (np.std(pressures) / mean_p) * 100 if mean_p > 0 else 0.0
-
-    print(f"  [统计] 平均声压: {mean_p:.2f} Pa | 最小: {min_p:.2f} Pa | 最大: {max_p:.2f} Pa")
-    print(f"  [指标] 均匀度 (Min/Max Ratio) = {uniformity:.4f} (越接近 1.0 越均等)")
-    print(f"  [指标] 变异系数 (CV) = {cv:.2f}% (越小越好)")
-    print("="*65 + "\n")
+def scene_metadata(cfg, solver):
+    output = {
+        "source_positions": solver.transducers.centers,
+        "target_points": np.asarray(cfg.targets).reshape(-1, 3),
+        "boundary_conditions": json.dumps(cfg.boundary_conditions),
+        "transducer_radius": cfg.specs.diameter * 0.5,
+        "dx": cfg.domain.dx, "frequency": cfg.frequency,
+        "c0": cfg.physics.sound_speed, "mode": cfg.mode,
+    }
+    if solver.obstacle_sdf is not None:
+        output["sdf"] = solver.obstacle_sdf
+    elif cfg.obstacles and cfg.obstacles[0].get("type") == "sphere":
+        obs = cfg.obstacles[0]
+        axes = [np.linspace(0, length, count)
+                for length, count in zip(cfg.domain.box_size, cfg.domain.grid_size)]
+        grid = np.stack(np.meshgrid(*axes, indexing="ij"), axis=-1)
+        output["sdf"] = np.linalg.norm(grid - obs["center"], axis=-1) - obs["radius"]
+    return output
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Warp-Accelerated 3D Ultrasound Forward Solver")
-    parser.add_argument(
-        "--config",
-        type=str,
-        default="src/examples/config.yaml",
-        help="Path to YAML config",
-    )
-    args = parser.parse_args()
-
-    # 1. 解析配置
-    cfg = SimulationConfig.from_yaml(args.config)
-
-    print("="*65)
-    print(f"换能器规格: {cfg.frequency:.1f} Hz, SPL={cfg.specs.spl_db:.1f} dB @ {cfg.specs.spl_distance:.3f} m, 直径={cfg.specs.diameter:.4f} m")
-    print(f"--> 标定发射表面声压 P0 = {cfg.calibrated_surface_pressure:.2f} Pa (波长 λ = {cfg.wavelength*1000:.2f} mm)")
-    print(f"--> 计算区域尺寸: [{cfg.lx*100:.1f} x {cfg.ly*100:.1f} x {cfg.lz*100:.1f}] cm, 网格步长 dx = {cfg.domain.dx*1000:.3f} mm")
-    print("="*65)
-
-    # 2. 求解声场
-    solver = HelmholtzDirectSolver(cfg)
-
-    if cfg.mode == "baseline":
-        u_field = solver.solve()
-        amplitude_field = np.abs(u_field)
-
-        # 3. 评测多焦点
-        evaluate_targets(amplitude_field, cfg.targets, cfg.domain.dx)
-
-        # 4. 生成空间 SDF 标量场
-        nx, ny, nz = cfg.domain.nx, cfg.domain.ny, cfg.domain.nz
-        dx = cfg.domain.dx
-        xs = np.linspace(0.0, (nx - 1) * dx, nx)
-        ys = np.linspace(0.0, (ny - 1) * dx, ny)
-        zs = np.linspace(0.0, (nz - 1) * dx, nz)
-        X, Y, Z = np.meshgrid(xs, ys, zs, indexing='ij')
-
-        p = np.stack([X, Y, Z], axis=-1)
-        sdf_grid = np.full(X.shape, np.inf)
-        if cfg.obstacles:
-            obs = cfg.obstacles[0]
-            if obs.get("type", "").lower() == "mesh":
-                sdf_grid = solver.obstacle_sdf
-            else:
-                center = np.array(obs.get("center", [0.04, 0.04, 0.02]), dtype=np.float64)
-                rad = float(obs.get("radius", 0.012))
-                sdf_grid = np.linalg.norm(p - center, axis=-1) - rad
-
-        # 5. 保存完整物理元数据
-        out_file = cfg.io.output_file
-        np.savez_compressed(
-            out_file,
-            amplitude=amplitude_field,
-            amp_sq=amplitude_field**2,
-            u_complex=u_field,
-            sdf=sdf_grid,
-            source_positions=solver.transducers.centers,
-            target_points=np.array(cfg.targets),
-            boundary_conditions=json.dumps(cfg.boundary_conditions),
-            transducer_radius=cfg.specs.diameter * 0.5,
-            dx=cfg.domain.dx,
-            frequency=cfg.frequency,
-            c0=cfg.physics.sound_speed
+def execute(cfg):
+    if cfg.mode == "sdf_inverse":
+        raise NotImplementedError(
+            "sdf_inverse is reserved for fixed equal-phase SDF reconstruction. "
+            "Observation loading and differentiable geometry assembly are not implemented."
         )
-        print(f"[Main] 仿真结果及 3D 元数据已保存至: '{out_file}'")
+    if cfg.mode == "phase_optimization":
+        validate_algorithm(cfg)
+    from solvers.helmholtz_solver import HelmholtzDirectSolver
 
-        # 6. 唤起 PyVista 硬件加速可视化
-        if cfg.io.auto_visualize:
-            show_pyvista_scene(out_file)
-
-    elif cfg.mode == "inverse":
-        training_mode = cfg.training.mode.lower()
-        if training_mode == "phase_only":
-            print("[Main] Building/loading phase-only response basis...")
+    solver = HelmholtzDirectSolver(cfg)
+    basis = None
+    started = time.perf_counter()
+    try:
+        if cfg.mode == "same_phase":
+            solver.set_phases(np.full(solver.transducers.num_transducers, cfg.same_phase_rad))
+            field = solver.solve()
+            output = scene_metadata(cfg, solver)
+            output.update(phases=solver.transducers.phases, u_complex=field,
+                          amplitude=np.abs(field), amp_sq=np.abs(field)**2)
+        else:
             basis = solver.build_phase_response_basis()
             if cfg.training.load_basis_to_gpu:
                 basis.to_gpu()
-            location = "GPU" if basis.basis_gpu is not None else "CPU"
-            print(
-                "[Main] Phase-only training forward model ready | "
-                f"shape={basis.shape} | storage={location}"
+            setup_seconds = time.perf_counter() - started
+            problem, result = run(cfg, basis)
+            reporting_started = time.perf_counter()
+            initial_field = basis.field(problem.initial_phases, return_numpy=True)
+            reporting_evaluations = 1
+            output = scene_metadata(cfg, solver)
+            output.update(
+                algorithm=cfg.algorithm,
+                phases=result.final.phases, u_complex=result.final.field,
+                amplitude=np.abs(result.final.field), amp_sq=np.abs(result.final.field)**2,
+                best_phases=result.best.phases, best_amplitude=np.abs(result.best.field),
+                initial_amplitude=np.abs(initial_field),
+                target_amplitude=problem.target.target, target_weight=problem.target.weight,
+                loss_history=np.array([row["loss"] for row in result.history]),
+                gradient_norm_history=np.array([
+                    np.nan if row["gradient_norm"] is None else row["gradient_norm"]
+                    for row in result.history]),
+                evaluation_history=np.array([row["evaluation"] for row in result.history]),
             )
-            optimizer = PhaseOnlyOptimizer(cfg, basis)
-            if cfg.training.gradient_check:
-                rows = optimizer.gradient_check(optimizer.initial_phases)
-                for row in rows:
-                    print(
-                        "[GradCheck] "
-                        f"emitter={row['index']} "
-                        f"adjoint={row['adjoint_gradient']:.6e} "
-                        f"finite_diff={row['finite_difference']:.6e} "
-                        f"abs_err={row['absolute_error']:.6e} "
-                        f"rel_err={row['relative_error']:.6e}"
-                    )
-            baseline_phases = None
-            baseline_field = None
-            baseline_amplitude = None
-            if cfg.training.compare_baseline:
-                baseline_phases = np.mod(
-                    solver.transducers._compute_baseline_phases(),
-                    2.0 * np.pi,
-                )
-                baseline_field = basis.field(
-                    baseline_phases,
-                    return_numpy=True,
-                )
-                baseline_amplitude = np.abs(baseline_field)
-                baseline_target, baseline_background = (
-                    optimizer.loss_model.stats(baseline_field)
-                )
-                print(
-                    "[BaselineCompare] "
-                    f"target={baseline_target:.3f} Pa "
-                    f"background_ref={baseline_background:.3f} Pa "
-                    f"contrast={baseline_target / baseline_background:.4f}"
-                )
-            initial_field = basis.field(optimizer.initial_phases, return_numpy=True)
-            initial_amplitude = np.abs(initial_field)
-            phases, history = optimizer.optimize()
-            solver.set_phases(phases)
-            final_field = basis.field(phases, return_numpy=True)
-            amplitude_field = np.abs(final_field)
-            output = {
-                "initial_amplitude": initial_amplitude,
-                "amplitude": amplitude_field,
-                "amp_sq": amplitude_field**2,
-                "u_complex": final_field,
-                "phases": phases,
-                "source_positions": solver.transducers.centers,
-                "target_points": np.array(cfg.targets),
-                "boundary_conditions": json.dumps(cfg.boundary_conditions),
-                "transducer_radius": cfg.specs.diameter * 0.5,
-                "dx": cfg.domain.dx,
-                "frequency": cfg.frequency,
-                "c0": cfg.physics.sound_speed,
-                "loss_history": np.array(
-                    [state.loss for state in history],
-                    dtype=np.float64,
-                ),
-                "gradient_norm_history": np.array(
-                    [state.gradient_norm for state in history],
-                    dtype=np.float64,
-                ),
-                "target_amplitude": optimizer.target.target,
-                "target_weight": optimizer.target.weight,
-            }
-            if baseline_amplitude is not None:
+            if cfg.training.compare_geometric:
+                phases = solver.transducers.compute_geometric_phases()
+                geometric_field = basis.field(phases, return_numpy=True)
+                reporting_evaluations += 1
                 output.update(
-                    {
-                        "baseline_amplitude": baseline_amplitude,
-                        "baseline_amp_sq": baseline_amplitude**2,
-                        "baseline_u_complex": baseline_field,
-                        "baseline_phases": baseline_phases,
-                    }
+                    geometric_phases=phases, geometric_u_complex=geometric_field,
+                    geometric_amplitude=np.abs(geometric_field),
+                    geometric_amp_sq=np.abs(geometric_field)**2,
+                    geometric_metrics=json.dumps(problem.metrics(geometric_field), allow_nan=False),
                 )
-            np.savez_compressed(
-                cfg.io.output_file,
-                **output,
-            )
-            print(
-                "[Main] Phase-only optimization result saved to: "
-                f"'{cfg.io.output_file}'"
-            )
-            if cfg.io.auto_visualize:
-                show_pyvista_scene(
-                    cfg.io.output_file,
-                    field_name="amplitude",
-                    compare_methods=cfg.training.compare_baseline,
-                )
-        elif training_mode == "obstacle_distribution":
-            print(
-                "[Main] Obstacle-distribution training selected. "
-                "The matrix changes with the obstacle field, so the "
-                "phase response basis is intentionally disabled."
-            )
-        else:
-            raise ValueError(
-                "training.mode must be 'phase_only' or "
-                "'obstacle_distribution'"
-            )
+            output["run_metadata"] = json.dumps({
+                "algorithm": cfg.algorithm, "algorithm_options": cfg.algorithm_options,
+                "seed": cfg.training.seed, "termination_reason": result.termination_reason,
+                "final_loss": result.final.loss, "best_loss": result.best.loss,
+                "final_metrics": result.final.metrics, "best_metrics": result.best.metrics,
+                "basis_build_or_load_seconds": setup_seconds,
+                "reporting_field_evaluations": reporting_evaluations,
+                "reporting_seconds": time.perf_counter() - reporting_started,
+                **result.metadata,
+            }, allow_nan=False)
+            output["evaluation_log"] = json.dumps(result.history, allow_nan=False)
+            print(f"[Result] {cfg.algorithm}: {result.termination_reason}; "
+                  f"final={result.final.loss:.6e} best={result.best.loss:.6e}")
+        path = Path(cfg.io.output_file)
+        if path.suffix != ".npz":
+            raise ValueError("io.output_file must end in .npz")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(path, **output)
+        print(f"[Main] Saved {path}")
+    finally:
+        if basis is not None:
+            basis.close()
+        if solver.condensed_solver is not None:
+            solver.condensed_solver.close()
+    if cfg.io.auto_visualize:
+        from visualizer import show_pyvista_scene
+        show_pyvista_scene(
+            cfg.io.output_file, field_name="amplitude",
+            compare_methods=cfg.mode == "phase_optimization" and cfg.training.compare_geometric,
+        )
+    return output
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Ultrasound phase optimization and SDF experiments")
+    parser.add_argument("--config", default="src/examples/config.yaml")
+    parser.add_argument("--list-algorithms", action="store_true")
+    args = parser.parse_args()
+    if args.list_algorithms:
+        print("\n".join(ALGORITHMS))
+        return
+    execute(SimulationConfig.from_yaml(args.config))
 
 
 if __name__ == "__main__":

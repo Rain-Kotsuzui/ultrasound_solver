@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1440" viewBox="0 0 2560 1440" role="img" aria-labelledby="title desc">
+  <title id="title">固定场景下的超声阵列相位优化框架</title>
+  <desc id="desc">专业横向算法架构图。物理模型经过 SDF 材料插值和 Helmholtz 离散，使用边界凝聚和 cuDSS 构建全场响应基 G。目标点生成目标振幅、权重和旁瓣掩码；初始化后循环执行全场合成、振幅损失、相位 VJP 与优化器更新。最终以同一个场景响应基对照传统几何相位。</desc>
+  <style>
+    text { font-family: "Microsoft YaHei", "Noto Sans CJK SC", "Segoe UI", sans-serif; font-weight: 400; letter-spacing: 0; fill: #25333b; }
+    .title { font-size: 48px; font-weight: 600; }
+    .subtitle { font-size: 27px; fill: #52646e; }
+    .section { font-size: 33px; font-weight: 600; }
+    .heading { font-size: 29px; font-weight: 600; }
+    .body { font-size: 27px; }
+    .note { font-size: 24px; fill: #52646e; }
+    .math { font-family: "Cambria", "Cambria Math", "Microsoft YaHei", serif; font-size: 30px; }
+    .blue { fill: #21618c; }
+    .teal { fill: #14766c; }
+    .gold { fill: #89671f; }
+    .red { fill: #b24743; }
+    .node { fill: #ffffff; stroke: #a8b8c1; stroke-width: 2; }
+    .physics { fill: #f6f9fc; stroke: #8aaec4; stroke-width: 2; }
+    .training { fill: #f4faf8; stroke: #78aaa1; stroke-width: 2; }
+    .target { fill: #fcfaf4; stroke: #bfad7a; stroke-width: 2; }
+    .divider { fill: none; stroke: #d8e1e5; stroke-width: 2; }
+    .arrow { fill: none; stroke: #617783; stroke-width: 2.6; marker-end: url(#arrow); }
+    .forward { fill: none; stroke: #21618c; stroke-width: 2.8; marker-end: url(#forward); }
+    .backward { fill: none; stroke: #14766c; stroke-width: 3; marker-end: url(#backward); }
+    .optional { stroke-dasharray: 8 7; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#617783" stroke-width="1.5"/>
+    </marker>
+    <marker id="forward" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#21618c" stroke-width="1.5"/>
+    </marker>
+    <marker id="backward" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#14766c" stroke-width="1.5"/>
+    </marker>
+    <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+      <path d="M30 0 H0 V30" fill="none" stroke="#e2e9ee" stroke-width="1"/>
+    </pattern>
+    <pattern id="emitters" x="125" y="480" width="34" height="25" patternUnits="userSpaceOnUse">
+      <rect x="6" y="5" width="22" height="13" rx="2" fill="#d0e1ed" stroke="#21618c" stroke-width="1.5"/>
+    </pattern>
+  </defs>
+  <rect width="2560" height="1440" fill="#ffffff"/>
+  <text x="70" y="81" class="title">固定场景下的超声阵列相位优化框架</text>
+  <text x="70" y="133" class="subtitle">物理建模与离线响应基预计算 / 全场可微合成与梯度优化 / 同场景对照验证</text>
+  <line x1="70" y1="167" x2="2490" y2="167" class="divider"/>
+
+  <text x="80" y="224" class="section blue">A  物理场景建模</text>
+  <text x="690" y="224" class="section blue">B  离线响应基构建</text>
+  <text x="1390" y="224" class="section teal">C  目标驱动的相位优化</text>
+  <text x="2490" y="224" class="note" text-anchor="end">场景与幅值固定，仅 φ 可变</text>
+  <path d="M80 247 H610 M690 247 H1290 M1390 247 H2490" class="divider"/>
+  <path d="M638 270 V1080 M1328 270 V1080" class="divider"/>
+
+  <g id="scene-illustration">
+    <text x="80" y="291" class="body">阵列 / 网格 / 频率 / 材料 / 边界</text>
+    <rect x="125" y="333" width="408" height="170" fill="url(#grid)" stroke="#a8b8c1" stroke-width="1.5"/>
+    <path d="M533 333 V503" stroke="#bfad7a" stroke-width="6"/>
+    <path d="M125 503 H533" stroke="#21618c" stroke-width="3"/>
+    <rect x="125" y="480" width="408" height="25" fill="url(#emitters)"/>
+    <path d="M282 395 L318 373 L428 384 L474 411 L404 424 L310 416 Z" fill="#dbeee8" stroke="#14766c" stroke-width="2"/>
+    <path d="M282 395 L428 384 L404 424 L318 373 M310 416 L428 384 L474 411" fill="none" stroke="#78aaa1" stroke-width="1.3"/>
+    <path d="M193 477 L235 437 M219 479 L260 445 M424 477 L455 442" class="forward"/>
+    <path d="M206 354 L220 354 M213 347 V361" stroke="#b24743" stroke-width="3"/>
+    <text x="240" y="358" class="note red">目标位置</text>
+    <text x="142" y="426" class="note">声源阵列</text>
+    <text x="548" y="410" class="note gold" transform="rotate(90 548 410)">反射边界</text>
+    <text x="435" y="327" class="note">开放边界</text>
+    <path d="M106 495 V342 M106 519 H530" class="arrow"/>
+    <text x="84" y="332" class="note">z</text>
+    <text x="547" y="532" class="note">x</text>
+    <text x="220" y="545" class="note">计算域剖面示意</text>
+  </g>
+
+  <g id="sdf-materials">
+    <rect x="80" y="578" width="530" height="164" rx="4" class="physics"/>
+    <text x="104" y="620" class="heading blue">Mesh → SDF → 材料参数</text>
+    <text x="104" y="666" class="body">几何变换与网格采样：s(x)</text>
+    <text x="104" y="713" class="math">Hε(s) → ρ(x), c(x)</text>
+  </g>
+  <path d="M345 560 V570 M345 742 V792" class="arrow"/>
+  <g id="helmholtz-model">
+    <rect x="80" y="800" width="530" height="280" rx="4" class="physics"/>
+    <text x="104" y="845" class="heading blue">变参数 Helmholtz 模型</text>
+    <text x="104" y="900" class="math">∇·(ρ⁻¹∇u) + ω²u/(ρc²) = 0</text>
+    <text x="104" y="954" class="body">阵元：uᵣ = P₀ exp(iφᵣ)</text>
+    <text x="104" y="1004" class="body">开放：Sommerfeld 条件</text>
+    <text x="104" y="1053" class="body">反射：零法向通量</text>
+  </g>
+  <path d="M610 936 H658 V377 H682" class="forward"/>
+
+  <g id="assembly">
+    <rect x="690" y="290" width="600" height="175" rx="4" class="physics"/>
+    <text x="716" y="334" class="heading blue">7 点 stencil 与稀疏系统装配</text>
+    <text x="716" y="389" class="math">A u = B exp(iφ)</text>
+    <text x="716" y="439" class="body">固定矩阵 A；按阵元组织源矩阵 B</text>
+  </g>
+  <path d="M990 465 V512" class="forward"/>
+  <g id="factorization">
+    <rect x="690" y="520" width="600" height="175" rx="4" class="physics"/>
+    <text x="716" y="564" class="heading blue">边界凝聚 + cuDSS 混合直接法</text>
+    <text x="716" y="619" class="math">S = A<tspan baseline-shift="sub" font-size="20">RR</tspan> − A<tspan baseline-shift="sub" font-size="20">RE</tspan> A<tspan baseline-shift="sub" font-size="20">EE</tspan>⁻¹ A<tspan baseline-shift="sub" font-size="20">ER</tspan></text>
+    <text x="716" y="669" class="note">一次分解 · 多右端回代 · 恢复完整声场</text>
+  </g>
+  <path d="M990 695 V742" class="forward"/>
+  <g id="response-basis">
+    <rect x="690" y="750" width="600" height="200" rx="4" class="physics"/>
+    <text x="716" y="792" class="heading blue">全场响应基 G</text>
+    <g transform="translate(719 816)">
+      <path d="M9 0 H0 V105 H9 M95 0 H104 V105 H95" fill="none" stroke="#21618c" stroke-width="2.5"/>
+      <rect x="16" y="7" width="17" height="91" fill="#d0e1ed"/>
+      <rect x="43" y="7" width="17" height="91" fill="#9cc3dc"/>
+      <rect x="70" y="7" width="17" height="91" fill="#5f9fca"/>
+    </g>
+    <text x="853" y="841" class="math blue">G = [g₁, …, g<tspan baseline-shift="sub" font-size="20">M</tspan>] = A⁻¹B</text>
+    <text x="853" y="893" class="body">N × M 复矩阵</text>
+    <text x="853" y="929" class="note">一列对应一个阵元的全场响应</text>
+  </g>
+  <path d="M690 435 H675 V865 H683" class="arrow optional"/>
+  <text x="710" y="995" class="note">G 缓存：场景指纹 + Mesh 内容哈希</text>
+  <text x="710" y="1034" class="note">虚线：完整缓存旁路；支持断点续建</text>
+  <text x="710" y="1073" class="note">GPU 常驻 / CPU 分块；场景变化需重建</text>
+
+  <g id="target">
+    <rect x="1390" y="290" width="1100" height="148" rx="4" class="target"/>
+    <text x="1416" y="333" class="heading gold">目标场与空间约束</text>
+    <text x="1416" y="378" class="body">目标点 → 等峰值高斯场 a*、权重 W</text>
+    <text x="1416" y="418" class="note">目标邻域 + 源面排除 → 旁瓣区域 Ωbg</text>
+    <path d="M2184 402 H2445 M2184 402 V319" fill="none" stroke="#a8b8c1" stroke-width="1.5"/>
+    <path d="M2190 400 C2220 400 2218 333 2247 333 C2272 333 2272 400 2300 400 C2322 400 2325 333 2353 333 C2380 333 2381 400 2432 400" fill="none" stroke="#89671f" stroke-width="3"/>
+    <text x="2245" y="429" class="note">目标振幅示意</text>
+  </g>
+  <path d="M1635 438 V487" class="arrow"/>
+  <path d="M2460 438 V620 H2250 V647" class="arrow"/>
+  <g id="initialization">
+    <rect x="1390" y="495" width="490" height="106" rx="4" class="node"/>
+    <text x="1414" y="536" class="heading">初相位 φ⁽⁰⁾ + 可选梯度检查</text>
+    <text x="1414" y="577" class="note">响应对齐 / 几何 / 零相位 / 当前值</text>
+  </g>
+  <text x="2025" y="531" class="note">优化目标：振幅分布</text>
+  <text x="2025" y="572" class="note">优化变量：M 个阵元相位</text>
+  <path d="M1635 601 V647" class="arrow"/>
+  <path d="M1290 800 H1342 V631 H1430 V647" class="forward"/>
+  <text x="1354" y="615" class="note blue">固定 G</text>
+
+  <g id="field-synthesis">
+    <rect x="1390" y="655" width="490" height="190" rx="4" class="training"/>
+    <text x="1414" y="700" class="heading teal">① 全场合成</text>
+    <text x="1414" y="758" class="math">u = G exp(iφ)</text>
+    <text x="1414" y="809" class="body">包含障碍物散射与边界反射</text>
+  </g>
+  <path d="M1880 750 H1992" class="forward"/>
+  <text x="1940" y="729" class="note blue" text-anchor="middle">a = |u|</text>
+  <g id="loss">
+    <rect x="2000" y="655" width="490" height="190" rx="4" class="training"/>
+    <text x="2024" y="700" class="heading teal">② 振幅损失</text>
+    <text x="2024" y="751" class="math">L = ½‖W ⊙ (|u| − a*)‖²</text>
+    <text x="2024" y="796" class="math" style="font-size:26px">L = −α mean(aₜ) + β smax(aΩ)</text>
+    <text x="2024" y="831" class="note">可选：场匹配 / 焦点增强 / 旁瓣抑制</text>
+  </g>
+  <path d="M2250 845 V892" class="backward"/>
+  <text x="2277" y="879" class="note teal">dL = Re(qᴴdu)</text>
+  <g id="gradient">
+    <rect x="2000" y="900" width="490" height="180" rx="4" class="training"/>
+    <text x="2024" y="945" class="heading teal">③ 相位梯度（解析 VJP）</text>
+    <text x="2024" y="996" class="math">z = Gᴴ q</text>
+    <text x="2024" y="1048" font-size="26">∇φL = Re[conj(z) ⊙ i exp(iφ)]</text>
+  </g>
+  <path d="M2000 990 H1888" class="backward"/>
+  <text x="1940" y="968" class="note teal" text-anchor="middle">∇φL</text>
+  <g id="optimizer">
+    <rect x="1390" y="900" width="490" height="180" rx="4" class="training"/>
+    <text x="1414" y="945" class="heading teal">④ 相位更新与终止判断</text>
+    <text x="1414" y="996" class="body">L-BFGS-B / Adam</text>
+    <text x="1414" y="1048" class="note">未结束：新相位进入下一轮</text>
+  </g>
+  <path d="M1390 990 H1364 V750 H1382" class="backward"/>
+  <text x="1450" y="878" class="note teal">更新 φ；其余场景参数不变</text>
+  <path d="M1635 1080 V1130 H400 V1172" class="arrow"/>
+  <text x="1660" y="1125" class="note">优化器终止</text>
+
+  <text x="80" y="1153" class="section blue">D  结果验证</text>
+  <g id="output">
+    <rect x="80" y="1180" width="650" height="145" rx="4" class="node"/>
+    <text x="106" y="1224" class="heading">最终相位与完整声场</text>
+    <text x="106" y="1273" class="body">最终相位 φ、u、|u|、损失与梯度历史</text>
+    <text x="106" y="1309" class="note">记录结果与场景元数据</text>
+  </g>
+  <path d="M730 1250 H792" class="arrow"/>
+  <g id="baseline">
+    <rect x="800" y="1180" width="780" height="145" rx="4" class="node"/>
+    <text x="826" y="1224" class="heading">同场景对照：传统几何相位与优化相位</text>
+    <text x="826" y="1263" class="math">u<tspan baseline-shift="sub" font-size="20">geo</tspan> = G exp(iφ<tspan baseline-shift="sub" font-size="20">geo</tspan>)；u<tspan baseline-shift="sub" font-size="20">final</tspan> = G exp(iφ<tspan baseline-shift="sub" font-size="20">final</tspan>)</text>
+    <text x="826" y="1309" class="note">两种方法均通过同一个响应基求场</text>
+  </g>
+  <path d="M1580 1250 H1642" class="arrow"/>
+  <g id="evaluation">
+    <rect x="1650" y="1180" width="840" height="145" rx="4" class="node"/>
+    <text x="1676" y="1224" class="heading">焦点振幅 / 旁瓣对比 / 三维等值面</text>
+    <text x="1676" y="1273" class="body">统一评价区域；红：传统相位，蓝：优化相位</text>
+    <text x="1676" y="1309" class="note">对比指标与掩码随所选 loss 定义</text>
+  </g>
+  <line x1="80" y1="1353" x2="2490" y2="1353" class="divider"/>
+  <text x="80" y="1399" class="note">N：网格自由度数；M：阵元数；R/E：保留/消去自由度；H：共轭转置；q：场导数。</text>
+  <text x="2490" y="1399" class="note" text-anchor="end">在线不重复求解 PDE；smax 为平滑最大值；插图非实验数据。</text>
+</svg>

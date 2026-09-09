@@ -87,16 +87,16 @@
   </script>
   <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 
-  <h1>Phase-Only Training with a Full-Field Response Basis</h1>
+  <h1>Fixed-Scene Phase Optimization with a Full-Field Response Basis</h1>
 
   <p class="note">该训练模式不增加第四种线性求解器。响应基由现有 <code>cudss_hybrid_direct</code> 后端离线构建，随后作为相位优化的精确缓存层。物理模型见 <a href="ACOUSTIC_PHYSICS_DERIVATION.html">ACOUSTIC_PHYSICS_DERIVATION.html</a>；完整梯度推导见 <a href="GRADIENT_DERIVATION.html">GRADIENT_DERIVATION.html</a>。</p>
 
-  <h2>两类逆向训练</h2>
+  <h2>两类逆向问题</h2>
 
   <table>
     <thead>
       <tr>
-        <th>training.mode</th>
+        <th>mode</th>
         <th>优化变量</th>
         <th>矩阵是否固定</th>
         <th>是否可使用响应基</th>
@@ -104,13 +104,13 @@
     </thead>
     <tbody>
       <tr>
-        <td><code>phase_only</code></td>
+        <td><code>phase_optimization</code></td>
         <td>81 个换能器相位</td>
         <td>固定</td>
         <td>可以，且数学上严格</td>
       </tr>
       <tr>
-        <td><code>obstacle_distribution</code></td>
+        <td><code>sdf_inverse</code></td>
         <td>障碍物几何或材料分布</td>
         <td>每轮变化</td>
         <td>不可以，必须重新装配并求解 PDE</td>
@@ -378,10 +378,14 @@ phase_response_basis.npy.json</code></pre>
 
   <h2>配置</h2>
 
-  <pre><code>mode: "inverse"
+  <pre><code>mode: "phase_optimization"
+algorithm: "adjoint"
+algorithm_options:
+  optimizer: "lbfgsb"
+  gradient_check: true
+  gradient_check_step: 1.0e-3
 
 training:
-  mode: "phase_only"
   phase_basis_file: "phase_response_basis.npy"
   phase_basis_batch_size: 8
   voxel_chunk_size: 262144
@@ -391,7 +395,7 @@ training:
 solver:
   backend: "cudss_hybrid_direct"</code></pre>
 
-  <p><code>phase_only</code> 强制要求高性能持久直接后端，因为响应基构建必须复用同一份精确因子。</p>
+  <p><code>phase_optimization</code> 强制要求高性能持久直接后端，因为响应基构建必须复用同一份精确因子。</p>
 
   <h2>Python 接口</h2>
 
@@ -404,7 +408,7 @@ basis.to_gpu()
 field = basis.field(phases)
 phase_gradient = basis.phase_vjp(field_cotangent, phases)</code></pre>
 
-  <h2>障碍物分布训练</h2>
+  <h2>SDF 反演预留模式</h2>
 
   <p>当优化变量包含障碍物分布时：</p>
 
@@ -428,7 +432,7 @@ phase_gradient = basis.phase_vjp(field_cotangent, phases)</code></pre>
   A(\theta_0)^{-1}B
   \]
 
-  <p><code>training.mode: "obstacle_distribution"</code> 因而明确禁用相位响应基。未来该模式需要：</p>
+  <p><code>mode: "sdf_inverse"</code> 因而明确禁用相位响应基。当前该模式仅保留配置语义，未来需要：</p>
 
   <ol>
     <li>根据障碍物参数重新生成 \(\rho(\theta)\) 和 \(c(\theta)\)。</li>

@@ -399,7 +399,7 @@ gradient = real(conjugate(response) * (1j * weights))</code></pre>
 
   <h2>有限差分验证</h2>
 
-  <p>当前 <code>PhaseOnlyOptimizer.gradient_check()</code> 使用中心差分验证相位梯度：</p>
+  <p>当前 <code>src/baselines/adjoint/</code> 使用中心差分验证相位梯度：</p>
 
   \[
   \frac{\partial L}{\partial\phi_r}
@@ -411,7 +411,8 @@ gradient = real(conjugate(response) * (1j * weights))</code></pre>
 
   <p>配置项：</p>
 
-  <pre><code>training:
+  <pre><code>algorithm: "adjoint"
+algorithm_options:
   gradient_check: true
   gradient_check_step: 1.0e-3</code></pre>
 

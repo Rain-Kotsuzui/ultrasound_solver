@@ -1,0 +1,292 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="2680" viewBox="0 0 1920 2680" role="img" aria-labelledby="title desc">
+  <title id="title">复杂环境超声声场调控：算法架构与完整相位优化流程</title>
+  <desc id="desc">由场景配置、Mesh-to-SDF、材料场、Helmholtz 装配、边界凝聚与 cuDSS 求解构建响应基。生成目标振幅与背景掩码，初始化相位并进行可选梯度检查。通过声场合成、损失、复数场 cotangent、响应基 VJP 和优化器形成相位更新闭环。输出相位、全场和历史，并在相同真实场景模型下比较传统相位。硬件下发仅为待接入扩展。</desc>
+  <style>
+    text { font-family: "Microsoft YaHei", "Noto Sans CJK SC", "Segoe UI", sans-serif; fill: #24343c; font-weight: 400; letter-spacing: 0; }
+    .title { font-size: 42px; font-weight: 600; }
+    .sub { font-size: 23px; fill: #536670; }
+    .section { font-size: 29px; font-weight: 600; }
+    .head { font-size: 25px; font-weight: 600; }
+    .t { font-size: 23px; }
+    .small { font-size: 21px; fill: #536670; }
+    .code { font-family: Consolas, "Microsoft YaHei", monospace; font-size: 20px; fill: #536670; }
+    .math { font-family: "Cambria Math", "Microsoft YaHei", serif; font-size: 25px; }
+    .blue { fill: #1864ab; }
+    .green { fill: #087f5b; }
+    .red { fill: #c92a2a; }
+    .amber { fill: #99630a; }
+    .node { fill: #ffffff; stroke: #bccbd3; stroke-width: 1.5; }
+    .physical { fill: #f3f9fe; stroke: #74b9e8; stroke-width: 1.5; }
+    .train { fill: #f1fbf7; stroke: #70bca1; stroke-width: 1.5; }
+    .optional { fill: #fffaf0; stroke: #c49c50; stroke-width: 1.5; }
+    .line { fill: none; stroke: #627784; stroke-width: 2.5; }
+    .arrow { fill: none; stroke: #627784; stroke-width: 2.5; marker-end: url(#arrow); }
+    .loop { fill: none; stroke: #087f5b; stroke-width: 3; marker-end: url(#green-arrow); }
+    .dash { stroke-dasharray: 9 7; }
+    .separator { stroke: #d6e0e5; stroke-width: 1.5; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#627784" stroke-width="1.6"/>
+    </marker>
+    <marker id="green-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#087f5b" stroke-width="1.6"/>
+    </marker>
+    <pattern id="array-grid" patternTransform="translate(88 322)" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="14" cy="14" r="9" fill="#d0ebff" stroke="#1971c2" stroke-width="1.5"/>
+    </pattern>
+    <pattern id="sdf-grid" width="22" height="22" patternUnits="userSpaceOnUse">
+      <path d="M22 0 H0 V22" fill="none" stroke="#bed5dd" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1920" height="2680" fill="#ffffff"/>
+  <text x="60" y="48" class="code blue">ULTRASOUND SOLVER · PHYSICS-BASED PHASE OPTIMIZATION</text>
+  <text x="60" y="105" class="title">复杂环境超声声场调控：算法架构与完整训练流程</text>
+  <text x="60" y="149" class="sub">固定场景的可微相位优化 · 无神经网络训练 · 无需逐轮重复求解大型 PDE</text>
+  <line x1="60" y1="180" x2="1860" y2="180" class="separator"/>
+
+  <g id="inputs">
+    <text x="60" y="231" class="section blue">01 / 场景输入与物理建模</text>
+    <text x="1110" y="231" class="small">固定量：几何、介质、频率、边界、阵元幅值</text>
+    <g id="array-input">
+      <rect x="60" y="260" width="570" height="330" rx="8" class="physical"/>
+      <text x="84" y="301" class="head blue">换能器阵列与声源标定</text>
+      <rect x="88" y="322" width="168" height="140" fill="url(#array-grid)"/>
+      <text x="283" y="350" class="t">频率 f、间距、直径</text>
+      <text x="283" y="386" class="t">SPL 与测量距离 → P₀</text>
+      <text x="283" y="422" class="t">位置、圆盘覆盖与编号</text>
+      <text x="88" y="494" class="math">M = n²；阵元幅值固定，相位 φ 可调</text>
+      <text x="88" y="531" class="t">底面 Dirichlet：u = P₀ exp(iφᵣ)</text>
+      <text x="88" y="568" class="code">physics/transducer_array.py</text>
+    </g>
+    <g id="mesh-input">
+      <rect x="675" y="260" width="570" height="330" rx="8" class="physical"/>
+      <text x="699" y="301" class="head blue">障碍物 Mesh → SDF → 材料场</text>
+      <rect x="699" y="321" width="164" height="146" fill="url(#sdf-grid)"/>
+      <path d="M714 395 L746 348 L807 334 L846 377 L831 432 L779 452 L730 431 Z" fill="#c3fae8" stroke="#087f5b" stroke-width="2"/>
+      <path d="M714 395 L807 334 L779 452 Z M746 348 L846 377 L730 431 M831 432 L807 334" fill="none" stroke="#099268" stroke-width="1.3"/>
+      <text x="886" y="350" class="t">闭合流形检查</text>
+      <text x="886" y="386" class="t">缩放 → XYZ 旋转 → 平移</text>
+      <text x="886" y="422" class="t">SDF 内负外正，单位 m</text>
+      <text x="699" y="494" class="t">平滑 Heaviside → ρ(x)、c(x)</text>
+      <text x="699" y="531" class="small">也支持球体 / 无障碍物；当前最多 1 个障碍物</text>
+      <text x="699" y="568" class="code">physics/mesh_to_sdf.py + warp_utils.py</text>
+    </g>
+    <g id="domain-input">
+      <rect x="1290" y="260" width="570" height="330" rx="8" class="physical"/>
+      <text x="1314" y="301" class="head blue">求解域、网格与边界</text>
+      <rect x="1324" y="328" width="138" height="129" fill="url(#sdf-grid)" stroke="#1971c2" stroke-width="2"/>
+      <path d="M1462 328 V457" stroke="#c49c50" stroke-width="6"/>
+      <path d="M1324 457 H1462" stroke="#1971c2" stroke-width="5"/>
+      <path d="M1339 320 V308 M1374 320 V308 M1409 320 V308" class="arrow"/>
+      <text x="1490" y="350" class="t">尺寸 Lx、Ly、Lz</text>
+      <text x="1490" y="386" class="t">等步长三维网格</text>
+      <text x="1490" y="422" class="t">N = Nx · Ny · Nz</text>
+      <text x="1314" y="494" class="t">六面 open / reflecting 条件</text>
+      <text x="1314" y="531" class="small">开放：Sommerfeld；反射：零法向通量</text>
+      <text x="1314" y="568" class="code">config.py → WarpAssemblyEngine</text>
+    </g>
+    <path d="M345 590 V622 H1640 V590 M960 590 V622" class="line"/>
+    <path id="scene-to-assembly" d="M345 622 H30 V855 H52" class="arrow"/>
+    <text x="700" y="654" class="small">同一离散物理场景；不依赖待优化的 φ</text>
+  </g>
+
+  <g id="offline">
+    <text x="60" y="696" class="section blue">02 / 离线构建：把大型 PDE 压缩为全场响应基</text>
+    <g id="assembly">
+      <rect x="60" y="720" width="420" height="280" rx="8" class="physical"/>
+      <text x="84" y="762" class="head blue">稀疏系统装配</text>
+      <text x="84" y="807" class="math">A u = B w；w = exp(iφ)</text>
+      <text x="84" y="850" class="t">三维变参数 7 点 stencil</text>
+      <text x="84" y="887" class="t">B 每列含一个阵元的激励</text>
+      <text x="84" y="925" class="small">检查每个阵元均被网格覆盖</text>
+      <text x="84" y="972" class="code">Warp → COO → CSR</text>
+    </g>
+    <path d="M480 855 H512" class="arrow"/>
+    <g id="cache">
+      <rect x="520" y="720" width="420" height="280" rx="8" class="physical"/>
+      <text x="544" y="762" class="head blue">响应基缓存检查</text>
+      <text x="544" y="807" class="t">场景指纹 + mesh 内容哈希</text>
+      <text x="544" y="850" class="t">形状、dtype、已完成列数</text>
+      <text x="544" y="887" class="t">完整且匹配 → 直接加载</text>
+      <text x="544" y="925" class="t">新缓存 / 未完成 → 构建</text>
+      <text x="544" y="972" class="small red">不匹配报错，须更换缓存路径</text>
+    </g>
+    <path d="M940 855 H972" class="arrow"/>
+    <g id="factor">
+      <rect x="980" y="720" width="420" height="280" rx="8" class="physical"/>
+      <text x="1004" y="762" class="head blue">边界凝聚 + cuDSS</text>
+      <text x="1004" y="807" class="t">消去边界自由度 → 约化 S</text>
+      <text x="1004" y="850" class="t">一次分解，复用同一因子</text>
+      <text x="1004" y="887" class="t">按阵元批次构造 RHS</text>
+      <text x="1004" y="925" class="t">逐列回代并恢复全场 gᵣ</text>
+      <text x="1004" y="972" class="code">cudss_hybrid_direct</text>
+    </g>
+    <path d="M1400 855 H1432" class="arrow"/>
+    <g id="basis">
+      <rect x="1440" y="720" width="420" height="280" rx="8" class="physical"/>
+      <text x="1464" y="762" class="head blue">全场响应基 G = A⁻¹B</text>
+      <g transform="translate(1464 789)" fill="#74c0fc">
+        <path d="M0 0 H8 V87 H0 Z M80 0 H88 V87 H80 Z" fill="#1971c2"/>
+        <rect x="15" y="7" width="12" height="72" opacity=".4"/>
+        <rect x="34" y="7" width="12" height="72" opacity=".8"/>
+        <rect x="53" y="7" width="12" height="72"/>
+      </g>
+      <text x="1570" y="817" class="t">N × M 复矩阵</text>
+      <text x="1570" y="854" class="small">一列 = 一个阵元全场</text>
+      <text x="1464" y="904" class="t">memmap + JSON 断点记录</text>
+      <text x="1464" y="941" class="t">可选释放因子、G 常驻 GPU</text>
+      <text x="1464" y="978" class="small">或使用 CPU 体素分块乘法</text>
+    </g>
+    <path d="M730 1000 V1041 H1650 V1008" class="arrow dash"/>
+    <text x="930" y="1030" class="small blue">完整缓存：跳过分解与回代</text>
+    <text x="60" y="1077" class="small">G 保留障碍物散射和边界反射；仅相位、目标或损失变化时可复用，物理场景变化必须重建。</text>
+    <line x1="60" y1="1100" x2="1860" y2="1100" class="separator"/>
+  </g>
+
+  <path id="basis-to-training" d="M1860 944 H1890 V1155 H960 V1162" class="arrow"/>
+  <text x="1730" y="1124" class="small blue">固定 G</text>
+  <g id="preparation">
+    <text x="60" y="1144" class="section green">03 / 训练准备：目标场、初相位与可选校验</text>
+    <g id="target">
+      <rect x="60" y="1170" width="570" height="285" rx="8" class="train"/>
+      <text x="84" y="1210" class="head green">目标点 → 目标振幅 a* 与权重 W</text>
+      <path d="M85 1283 H282 M88 1283 V1225" class="line"/>
+      <path d="M92 1281 C118 1281 117 1232 137 1232 C157 1232 155 1281 178 1281 C197 1281 199 1232 219 1232 C239 1232 237 1281 270 1281" fill="none" stroke="#087f5b" stroke-width="3"/>
+      <text x="306" y="1245" class="small">高斯 σ；各目标等峰值</text>
+      <text x="306" y="1279" class="small">maximum 合成，避免叠高</text>
+      <text x="84" y="1326" class="t">或加载 .npy / .npz 目标振幅场</text>
+      <text x="84" y="1367" class="t">对比损失背景 Ω：排除目标半径</text>
+      <text x="84" y="1408" class="t">与底部源面附近指定网格层</text>
+      <text x="84" y="1441" class="code">AmplitudeTarget / background_mask</text>
+    </g>
+    <path d="M630 1280 H667" class="arrow"/>
+    <g id="initialization">
+      <rect x="675" y="1170" width="570" height="285" rx="8" class="train"/>
+      <text x="699" y="1210" class="head green">相位初始化 φ⁽⁰⁾</text>
+      <text x="699" y="1257" class="t">response：基于真实响应的相位对齐</text>
+      <text x="699" y="1299" class="math">φᵣ⁽⁰⁾ = arg[Σₖ conj(G[tₖ,r])]</text>
+      <text x="699" y="1343" class="t">baseline：几何传播相位</text>
+      <text x="699" y="1385" class="t">zero / current：零相位 / 当前相位</text>
+      <text x="699" y="1431" class="small">只优化 M 个相位；不更新场景与阵元幅值</text>
+    </g>
+    <path d="M1245 1280 H1282" class="arrow"/>
+    <g id="checks">
+      <rect x="1290" y="1170" width="570" height="285" rx="8" class="optional"/>
+      <text x="1314" y="1210" class="head amber">可选诊断与对照准备</text>
+      <text x="1314" y="1257" class="t">gradient_check：解析梯度对中心差分</text>
+      <text x="1314" y="1299" class="math">gFD,r = [L(φ+h eᵣ) − L(φ−h eᵣ)] / 2h</text>
+      <text x="1314" y="1343" class="small">当前默认检查前 min(8, M) 个阵元并打印</text>
+      <text x="1314" y="1385" class="t">compare_baseline：计算 G exp(iφgeo)</text>
+      <text x="1314" y="1431" class="small">同时保存初始振幅；校验不自动阻断训练</text>
+    </g>
+    <path id="initial-to-forward" d="M1575 1455 V1483 H530 V1562" class="arrow"/>
+    <text x="570" y="1479" class="small green">初始相位与准备完成信号</text>
+  </g>
+
+  <g id="optimization-loop">
+    <text x="60" y="1533" class="section green">04 / 在线优化闭环</text>
+    <text x="960" y="1533" class="small">G 固定 · 每次 objective 返回 L 与 ∇φL · 可反复评估</text>
+    <g id="forward">
+      <rect x="60" y="1570" width="570" height="250" rx="8" class="train"/>
+      <text x="84" y="1611" class="head green">① 相位 → 完整声场 → 振幅</text>
+      <text x="84" y="1661" class="math">w = exp(iφ)；u = G w；a = |u|</text>
+      <text x="84" y="1706" class="t">一次复矩阵向量乘法，恢复三维场</text>
+      <text x="84" y="1748" class="small">覆盖全部体素，包含真实场景的边界与散射</text>
+      <text x="84" y="1793" class="code">PhaseResponseBasis.field()</text>
+    </g>
+    <path d="M630 1690 H667" class="arrow"/>
+    <g id="loss">
+      <rect x="675" y="1570" width="570" height="250" rx="8" class="train"/>
+      <text x="699" y="1611" class="head green">② 计算损失 L（选择一种）</text>
+      <text x="699" y="1661" class="math">匹配：½ Σⱼ [Wⱼ(aⱼ − a*ⱼ)]²</text>
+      <text x="699" y="1706" class="math">聚焦：−α mean(aₜ) + β/(2N) Σⱼ aⱼ²</text>
+      <text x="699" y="1751" class="math">对比：−α mean(aₜ) + β smaxΤ(aΩ)</text>
+      <text x="699" y="1793" class="small">目标场 / 目标索引 / 背景掩码来自步骤 03</text>
+    </g>
+    <path d="M1245 1690 H1282" class="arrow"/>
+    <g id="cotangent">
+      <rect x="1290" y="1570" width="570" height="250" rx="8" class="train"/>
+      <text x="1314" y="1611" class="head green">③ 复声场导数 q（cotangent）</text>
+      <text x="1314" y="1661" class="math">约定：dL = Re(qᴴ du)</text>
+      <text x="1314" y="1706" class="math">匹配：q = W² ⊙ (a − a*) ⊙ u/(a+ε)</text>
+      <text x="1314" y="1751" class="math">对比：目标负梯度 + β pⱼ uⱼ/(aⱼ+ε)</text>
+      <text x="1314" y="1793" class="small">p = softmax(aΩ/T)；ε 防止除零</text>
+    </g>
+    <path d="M1575 1820 V1872" class="loop"/>
+    <text x="1600" y="1858" class="small green">反向传播</text>
+    <g id="vjp">
+      <rect x="1290" y="1880" width="570" height="250" rx="8" class="train"/>
+      <text x="1314" y="1921" class="head green">④ 响应基伴随乘法与相位 VJP</text>
+      <text x="1314" y="1971" class="math">z = Gᴴ q</text>
+      <text x="1314" y="2016" class="math">g = ∇φL = Re[conj(z) ⊙ i exp(iφ)]</text>
+      <text x="1314" y="2061" class="small">同时获得 M 个相位梯度，不逐阵元做差分</text>
+      <text x="1314" y="2103" class="code">PhaseResponseBasis.phase_vjp()</text>
+    </g>
+    <path d="M1290 2010 H1253" class="loop"/>
+    <g id="optimizer">
+      <rect x="675" y="1880" width="570" height="250" rx="8" class="train"/>
+      <text x="699" y="1921" class="head green">⑤ 优化器更新相位</text>
+      <text x="699" y="1971" class="t">L-BFGS-B：有界拟牛顿 + 线搜索</text>
+      <text x="699" y="2016" class="t">或 Adam：一阶 / 二阶矩 + 学习率</text>
+      <text x="699" y="2061" class="small">L-BFGS-B 边界 [0, 2π]；Adam 每步取模</text>
+      <text x="699" y="2103" class="code">PhaseOnlyOptimizer.optimize()</text>
+    </g>
+    <path d="M675 2010 H638" class="loop"/>
+    <g id="termination">
+      <rect x="60" y="1880" width="570" height="250" rx="8" class="train"/>
+      <text x="84" y="1921" class="head green">⑥ 记录指标并判断是否继续</text>
+      <text x="84" y="1971" class="t">loss、梯度范数、目标与背景振幅</text>
+      <text x="84" y="2016" class="small">L-BFGS-B：收敛 / 达上限 / 求解器终止</text>
+      <text x="84" y="2061" class="small">Adam：按配置 iterations 完成固定步数</text>
+      <text x="84" y="2103" class="t green">继续 → 返回①；结束 → 输出结果</text>
+    </g>
+    <path d="M60 2010 H30 V1690 H52" class="loop"/>
+    <text x="45" y="1861" class="small green">新 φ</text>
+    <path id="termination-to-export" d="M345 2130 V2190 H30 V2385 H52" class="arrow"/>
+    <text x="370" y="2170" class="small">结束</text>
+    <text x="675" y="2169" class="math blue">Gᴴq = BᴴA⁻ᴴq = Bᴴλ，等价于预计算后的 PDE 伴随</text>
+    <text x="675" y="2208" class="small">在线不显式求解 Aᴴλ=q；这里的“训练”是物理模型约束下的相位优化。</text>
+  </g>
+
+  <g id="results">
+    <text x="60" y="2240" class="section blue">05 / 输出、评估与传统方法对照</text>
+    <g id="export">
+      <rect x="60" y="2270" width="570" height="235" rx="8" class="physical"/>
+      <text x="84" y="2312" class="head blue">最终相位与完整结果</text>
+      <text x="84" y="2358" class="math">φfinal；u final = G exp(iφfinal)</text>
+      <text x="84" y="2400" class="t">复声场、振幅、目标场与权重</text>
+      <text x="84" y="2442" class="t">loss / 梯度范数历史、场景元数据</text>
+      <text x="84" y="2484" class="code">main.py → .npz</text>
+    </g>
+    <path d="M630 2385 H667" class="arrow"/>
+    <g id="evaluation">
+      <rect x="675" y="2270" width="570" height="235" rx="8" class="physical"/>
+      <text x="699" y="2312" class="head blue">同场景公平对比（可选）</text>
+      <text x="699" y="2358" class="t">传统几何相位也通过同一 G 求场</text>
+      <text x="699" y="2400" class="t">比较初始 / 传统 / 优化后振幅</text>
+      <text x="699" y="2442" class="math">对比指标 C = mean(aₜ) / max(aΩ)</text>
+      <text x="699" y="2484" class="small">此指标定义对应 focal_contrast 模式</text>
+    </g>
+    <path d="M1245 2385 H1282" class="arrow"/>
+    <g id="visualization">
+      <rect x="1290" y="2270" width="570" height="235" rx="8" class="physical"/>
+      <text x="1314" y="2312" class="head blue">PyVista 交互式展示</text>
+      <ellipse cx="1350" cy="2371" rx="26" ry="32" fill="#ffe3e3" stroke="#c92a2a" stroke-width="2"/>
+      <ellipse cx="1402" cy="2371" rx="18" ry="25" fill="#d0ebff" stroke="#1971c2" stroke-width="2"/>
+      <text x="1440" y="2361" class="t red">红：传统相位</text>
+      <text x="1440" y="2398" class="t blue">蓝：优化相位</text>
+      <text x="1314" y="2442" class="t">独立等值面阈值；可隐藏源面层</text>
+      <text x="1314" y="2484" class="code">visualizer.py --compare-methods</text>
+    </g>
+  </g>
+
+  <g id="scope-notes">
+    <path d="M345 2505 V2530 H660" class="arrow dash"/>
+    <text x="685" y="2539" class="small amber">装置端扩展：相位量化 → 驱动下发 → 实测声场验证（当前代码未实现）</text>
+    <line x1="60" y1="2572" x2="1860" y2="2572" class="separator"/>
+    <text x="60" y="2610" class="small">图例：蓝色为物理建模 / 求解 / 评估；绿色为相位优化；金色为可选诊断；虚线为旁路或待接入扩展。</text>
+    <text x="60" y="2649" class="small">注：阵列、网格、曲线与等值面均为原理示意，非实验数据。q 表示复声场导数，c 表示声速；H 为共轭转置。</text>
+  </g>
+</svg>

@@ -47,7 +47,24 @@ python src/visualizer.py outputs/phase_oblique_reflecting_x_12x12/result.npz --c
 
 ### 顶层
 
-- `mode`: 运行模式，`baseline` 表示前向求解，`inverse` 表示进入逆向/优化流程。
+- `mode`: `phase_optimization` 根据 `algorithm` 优化阵元相位；`same_phase` 使用固定同相位前向求解；`sdf_inverse` 为未来 SDF 反演预留，当前会明确报未实现。
+- `algorithm`: 相位优化算法，可选 `adjoint`、`geometric`、`response_alignment`、`gabs`、`spsa`、`sac`、`ppo`、`cmaes`。
+- `algorithm_options`: 当前 `algorithm` 的专属参数映射；不属于该算法的参数会报错。
+- `same_phase_rad`: `same_phase` 和 `sdf_inverse` 的所有阵元固定相位，单位 `rad`。
+
+算法选择示例：
+
+```yaml
+mode: "phase_optimization"
+algorithm: "spsa"
+algorithm_options:
+  learning_rate: 0.05
+  perturbation: 0.1
+  alpha: 0.602
+  gamma: 0.101
+```
+
+完整示例见 `src/examples/algorithms/README.md`。
 
 ### `physics`
 
@@ -86,10 +103,9 @@ python src/visualizer.py outputs/phase_oblique_reflecting_x_12x12/result.npz --c
 
 ### `training`
 
-- `mode`: 训练模式，当前主线使用 `phase_only`。
 - `loss_type`: 损失函数，支持 `field_match`、`focal_pressure`、`focal_contrast`。
-- `initial_phase`: 初始相位，支持 `baseline`、`response`、`current`、`zero`。
-- `compare_baseline`: 是否额外计算并保存传统几何相位结果，用于红蓝对比可视化。
+- `initial_phase`: 初始相位，支持 `geometric`、`response`、`current`、`zero`、`random`。
+- `compare_geometric`: 是否额外计算并保存传统几何相位结果，用于红蓝对比可视化。
 - `phase_basis_file`: 相位响应基缓存文件路径。
 - `phase_basis_batch_size`: 构建响应基时每批处理的阵元数量。
 - `voxel_chunk_size`: CPU 合成场和反向梯度计算的体素分块大小。
@@ -104,11 +120,18 @@ python src/visualizer.py outputs/phase_oblique_reflecting_x_12x12/result.npz --c
 - `target_radius`: `focal_contrast` 中从旁瓣区域排除的目标半径，单位 `m`。
 - `source_exclusion_layers`: 忽略底部源面附近的网格层数。
 - `sidelobe_temperature`: `focal_contrast` 平滑最大旁瓣的温度参数，单位 `Pa`。
-- `optimizer`: 相位优化器，支持 `adam`、`lbfgsb`。
-- `learning_rate`: Adam 学习率。
 - `iterations`: 优化迭代次数。
-- `gradient_check`: 是否在优化前执行有限差分梯度检查。
-- `gradient_check_step`: 有限差分相位步长，单位 `rad`。
+- `max_evaluations`: 单次任务可用的总声场评估次数上限；GABS、SPSA、RL、CMA-ES 和伴随法都使用此上限。
+- `seed`: 随机算法与 RL 的随机种子。
+
+### `algorithm_options`
+
+- `adjoint`: `optimizer` 为 `adam` 或 `lbfgsb`；`learning_rate` 仅对 Adam 生效；`gradient_check` 和 `gradient_check_step` 控制有限差分验证。
+- `geometric`、`response_alignment`: 无专属参数。
+- `gabs`: `phase_levels`，单个阵元每轮枚举的离散相位数。
+- `spsa`: `learning_rate`、`perturbation`、`alpha`、`gamma`。
+- `cmaes`: `sigma`、`population_size`；需要可选依赖。
+- `sac`、`ppo`: `episode_steps`、`evaluation_steps`、`action_scale`、`reward_scale`、`total_timesteps`、`checkpoint`、`run_mode` 等；需要可选依赖，完整参数见 `src/baselines/requirements.txt` 和 `docs/BASELINE_COMPARISON_PLAN.md`。
 
 ### `boundary_conditions`
 

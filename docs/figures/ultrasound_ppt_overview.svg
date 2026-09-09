@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc">
+  <title id="title">复杂环境下的超声阵列相位优化：PPT 横向简图</title>
+  <desc id="desc">从左到右依次是场景建模、响应基预计算、相位优化闭环和聚焦评估。目标位置、期望振幅和旁瓣区域从上方进入相位优化。优化闭环包含声场合成、损失计算、梯度回传和相位更新。固定场景下复用响应基，无需每轮重新求解大型 PDE。</desc>
+  <style>
+    text { font-family: "Microsoft YaHei", "Noto Sans CJK SC", "Segoe UI", sans-serif; fill: #24343c; font-weight: 400; letter-spacing: 0; }
+    .title { font-size: 52px; font-weight: 600; }
+    .subtitle { font-size: 29px; fill: #536670; }
+    .stage { font-size: 26px; font-weight: 600; }
+    .head { font-size: 32px; font-weight: 600; }
+    .body { font-size: 28px; }
+    .small { font-size: 26px; fill: #536670; }
+    .formula { font-family: "Cambria Math", "Microsoft YaHei", serif; font-size: 40px; }
+    .blue { fill: #1864ab; }
+    .green { fill: #087f5b; }
+    .amber { fill: #99630a; }
+    .physical { fill: #f3f9fe; stroke: #74b9e8; stroke-width: 2; }
+    .training { fill: #f1fbf7; stroke: #70bca1; stroke-width: 2; }
+    .target { fill: #fffaf0; stroke: #c49c50; stroke-width: 2; }
+    .arrow { fill: none; stroke: #627784; stroke-width: 3; marker-end: url(#arrow); }
+    .loop { fill: none; stroke: #087f5b; stroke-width: 3; marker-end: url(#green-arrow); }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#627784" stroke-width="1.6"/>
+    </marker>
+    <marker id="green-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#087f5b" stroke-width="1.6"/>
+    </marker>
+    <pattern id="array" x="88" y="523" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="14" cy="14" r="9" fill="#d0ebff" stroke="#1971c2" stroke-width="1.5"/>
+    </pattern>
+  </defs>
+  <rect width="1920" height="1080" fill="#ffffff"/>
+  <text x="64" y="69" class="stage blue">Ultrasound Solver / 算法概览</text>
+  <text x="64" y="145" class="title">复杂环境下的超声阵列相位优化</text>
+  <text x="64" y="201" class="subtitle">让指定位置聚焦，同时抑制非目标区域的声场旁瓣</text>
+
+  <g id="target-input">
+    <rect x="944" y="258" width="520" height="105" rx="8" class="target"/>
+    <text x="1204" y="300" class="head amber" text-anchor="middle">目标输入</text>
+    <text x="1204" y="340" class="small" text-anchor="middle">目标位置 · 期望振幅 · 旁瓣区域</text>
+  </g>
+  <path d="M1204 363 V422" class="arrow"/>
+
+  <text x="64" y="395" class="stage blue">离线：场景变化时构建</text>
+  <text x="944" y="395" class="stage green">在线：多轮迭代</text>
+  <text x="1544" y="395" class="stage blue">输出：验证与展示</text>
+
+  <g id="scene">
+    <rect x="64" y="430" width="340" height="320" rx="8" class="physical"/>
+    <text x="88" y="481" class="head blue">01 场景建模</text>
+    <rect x="88" y="523" width="112" height="112" fill="url(#array)"/>
+    <text x="224" y="558" class="body">阵列参数</text>
+    <text x="224" y="607" class="body">几何障碍</text>
+    <text x="88" y="669" class="body">SDF + 材料 + 边界</text>
+    <text x="88" y="718" class="small">固定场景与阵元幅值</text>
+  </g>
+  <path d="M414 584 H474" class="arrow"/>
+
+  <g id="basis">
+    <rect x="484" y="430" width="380" height="320" rx="8" class="physical"/>
+    <text x="508" y="481" class="head blue">02 响应基预计算</text>
+    <g transform="translate(508 524)" fill="#74c0fc">
+      <path d="M7 0 H0 V77 H7 M74 0 H81 V77 H74" fill="none" stroke="#1971c2" stroke-width="3"/>
+      <rect x="14" y="7" width="12" height="63" opacity=".45"/>
+      <rect x="34" y="7" width="12" height="63" opacity=".7"/>
+      <rect x="54" y="7" width="12" height="63"/>
+    </g>
+    <text x="615" y="573" class="formula blue">G = A⁻¹B</text>
+    <text x="508" y="628" class="body">Helmholtz 离散求解</text>
+    <text x="508" y="672" class="body">边界凝聚 + GPU 加速</text>
+    <text x="508" y="718" class="small">一次构建，多轮复用</text>
+  </g>
+  <path d="M874 584 H934" class="arrow"/>
+
+  <g id="phase-optimization">
+    <rect x="944" y="430" width="520" height="320" rx="8" class="training"/>
+    <text x="968" y="481" class="head green">03 相位优化闭环</text>
+    <text x="992" y="558" class="body green">声场合成</text>
+    <text x="1256" y="558" class="body green">损失计算</text>
+    <text x="1256" y="658" class="body green">梯度回传</text>
+    <text x="992" y="658" class="body green">相位更新</text>
+    <path d="M1130 548 H1234" class="loop"/>
+    <path d="M1386 548 H1420 V647 H1386" class="loop"/>
+    <path d="M1234 647 H1130" class="loop"/>
+    <path d="M980 647 H963 V548 H980" class="loop"/>
+    <text x="1204" y="607" class="body" text-anchor="middle">u = G exp(iφ)</text>
+    <text x="968" y="718" class="small">L-BFGS-B / Adam · 仅更新相位 φ</text>
+  </g>
+  <text x="1504" y="554" class="small" text-anchor="middle">结束</text>
+  <path d="M1474 584 H1534" class="arrow"/>
+
+  <g id="results">
+    <rect x="1544" y="430" width="312" height="320" rx="8" class="physical"/>
+    <text x="1568" y="481" class="head blue">04 聚焦与评估</text>
+    <circle cx="1606" cy="575" r="33" fill="none" stroke="#1971c2" stroke-width="2"/>
+    <circle cx="1606" cy="575" r="18" fill="#d0ebff" stroke="#1971c2" stroke-width="2"/>
+    <circle cx="1606" cy="575" r="5" fill="#1971c2"/>
+    <text x="1668" y="556" class="body">优化相位</text>
+    <text x="1668" y="603" class="body">振幅场</text>
+    <text x="1568" y="669" class="small">目标增强 / 旁瓣抑制</text>
+    <text x="1568" y="718" class="small">与传统方法对照</text>
+  </g>
+
+  <line x1="64" y1="816" x2="1856" y2="816" stroke="#d6e0e5" stroke-width="2"/>
+  <text x="64" y="886" font-size="37" font-weight="600" class="blue">核心优势：将反复 PDE 求解转化为快速矩阵运算</text>
+  <text x="64" y="943" class="subtitle">正向用 G 合成声场，反向用 Gᴴ 回传梯度；固定场景下无需每轮重新分解。</text>
+  <text x="64" y="1020" class="small">固定场景相位优化 · 非神经网络训练</text>
+  <text x="1856" y="1020" class="small" text-anchor="end">原理示意，聚焦效果以具体场景验证为准</text>
+</svg>

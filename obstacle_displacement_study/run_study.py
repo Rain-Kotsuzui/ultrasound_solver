@@ -90,7 +90,8 @@ def create_models() -> None:
 def case_config(case: dict, position_name: str, center_x: float) -> dict:
     output = RESULTS / f"{case['key']}_{position_name}.npz"
     return {
-        "mode": "baseline",
+        "mode": "same_phase",
+        "same_phase_rad": 0.0,
         "physics": {"sound_speed": 343.0, "medium_density": 1.21},
         "transducer_specs": {
             "frequency": 40000.0,
