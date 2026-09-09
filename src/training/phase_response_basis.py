@@ -67,6 +67,12 @@ class PhaseResponseBasis:
                 "solver.backend='cudss_hybrid_direct'"
             )
 
+        # A completed basis already encodes this exact physical scene. Validate
+        # and reuse it before assembling the large Helmholtz matrix again.
+        self._open_or_create_storage()
+        if self.is_complete:
+            return self
+
         self.solver.assemble_matrix()
         dof_indices, emitter_ids = (
             self.solver.warp_engine.emitter_dof_map()
@@ -81,10 +87,6 @@ class PhaseResponseBasis:
                 "The grid does not cover transducers "
                 f"{missing.tolist()}"
             )
-
-        self._open_or_create_storage()
-        if self.is_complete:
-            return self
 
         self.solver.factorize()
         amplitudes = self.solver.transducers.amplitudes

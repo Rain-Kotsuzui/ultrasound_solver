@@ -43,6 +43,32 @@ python src/visualizer.py outputs/phase_oblique_reflecting_x_12x12/result.npz --c
 
 红色等值面表示传统几何相位结果，蓝色等值面表示优化相位结果；两个滑条分别控制两种方法的等值面阈值。
 
+## 批量算法对比
+
+对固定场景依次运行几何相位、响应对齐、伴随梯度、GABS、SPSA、CMA-ES、SAC 和 PPO：
+
+```powershell
+python src/compare.py --config src/examples/phase_oblique_reflecting_x_12x12.yaml
+```
+
+默认会打开一个总 loss 面板；全部所选算法都会占用一个子图，算法数增加时自动增加行列，并将结果写入：
+
+```text
+outputs/algs/phase_oblique_reflecting_x_12x12/
+  summary.csv
+  summary.json
+  <algorithm>/config.yaml
+  <algorithm>/result.npz
+```
+
+`--algorithms adjoint,gabs,spsa` 可只运行指定算法；`--no-loss-window` 用于无图形界面的批处理。SAC、PPO、CMA-ES 需要先安装 `src/baselines/requirements.txt` 中的可选依赖。
+
+比较过程还会写入 TensorBoard 标量事件，不会自动打开或抢占浏览器。查看全部算法的交互式 loss 曲线：
+
+```powershell
+tensorboard --logdir outputs/algs/phase_oblique_reflecting_x_12x12/tensorboard
+```
+
 ## Config 参数
 
 ### 顶层

@@ -6,7 +6,7 @@ import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import yaml
@@ -14,6 +14,8 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from baselines import run, validate_algorithm, ALGORITHMS
 from baselines.common import PhaseProblem, BudgetExhausted
+from baselines.loss_curve import ComparisonLossDashboard
+from compare import PROFILES, _copy_profile, _summary_row
 from config import (SimulationConfig, PhysicsConfig, TransducerSpecsConfig,
                     DomainConfig, IOConfig, TrainingConfig)
 from physics.transducer_array import TransducerArray
@@ -131,6 +133,49 @@ class BaselineTests(unittest.TestCase):
             problem, result = run(cfg, ToyBasis(cfg))
         self.assertEqual(curve.update.call_count, problem.field_evaluations)
         curve.finalize.assert_called_once_with(result.termination_reason)
+
+    def test_comparison_dashboard_binds_one_curve_per_algorithm(self):
+        with patch("baselines.loss_curve._interactive_pyplot") as pyplot:
+            figure = MagicMock()
+            axes = np.empty((1, 2), dtype=object)
+            axes[0, 0] = MagicMock()
+            axes[0, 1] = MagicMock()
+            axes[0, 0].plot.return_value = [MagicMock()]
+            axes[0, 1].plot.return_value = [MagicMock()]
+            pyplot.return_value.subplots.return_value = (figure, axes)
+            dashboard = ComparisonLossDashboard(["adjoint", "spsa"], True)
+            adjoint = dashboard.curve("adjoint", 1)
+            spsa = dashboard.curve("spsa", 2)
+            adjoint.update({"evaluation": 1, "loss": 2.0, "best_loss": 2.0})
+            spsa.update({"evaluation": 1, "loss": 3.0, "best_loss": 3.0})
+            self.assertIs(dashboard._curves["adjoint"], adjoint)
+            self.assertIs(dashboard._curves["spsa"], spsa)
+            self.assertEqual(len(adjoint.losses), 1)
+            self.assertEqual(len(spsa.losses), 1)
+
+    def test_comparison_profiles_use_shared_initialization_and_budget(self):
+        root = Path("outputs/test_compare_profiles")
+        try:
+            for algorithm in PROFILES:
+                cfg = _copy_profile(config(), algorithm, root, False)
+                self.assertEqual(cfg.algorithm, algorithm)
+                self.assertFalse(cfg.training.show_loss_curve)
+                self.assertIn(str(root / algorithm), cfg.io.output_file)
+                if algorithm not in {"geometric", "response_alignment"}:
+                    self.assertEqual(cfg.training.initial_phase, "geometric")
+            row = _summary_row(
+                "adjoint", "completed",
+                {"best_loss": -2.0, "final_loss": -1.0,
+                 "best_metrics": {"target_mean": 4.0, "background_max": 2.0,
+                                  "contrast": 2.0},
+                 "field_evaluations": 10, "vjp_evaluations": 5,
+                 "elapsed_seconds": 1.0, "termination_reason": "converged"},
+            )
+            self.assertEqual(row["contrast"], 2.0)
+        finally:
+            if root.exists():
+                import shutil
+                shutil.rmtree(root)
         cfg.algorithm = "spsa"
         cfg.algorithm_options = {"typo": 3}
         with self.assertRaises(ValueError):

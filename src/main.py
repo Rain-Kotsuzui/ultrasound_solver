@@ -31,6 +31,70 @@ def scene_metadata(cfg, solver):
     return output
 
 
+def save_phase_optimization_result(
+    cfg,
+    solver,
+    basis,
+    problem,
+    result,
+    basis_setup_seconds: float,
+    extra_metadata: dict | None = None,
+):
+    reporting_started = time.perf_counter()
+    initial_field = basis.field(problem.initial_phases, return_numpy=True)
+    reporting_evaluations = 1
+    output = scene_metadata(cfg, solver)
+    output.update(
+        algorithm=cfg.algorithm,
+        phases=result.final.phases, u_complex=result.final.field,
+        amplitude=np.abs(result.final.field), amp_sq=np.abs(result.final.field)**2,
+        best_phases=result.best.phases, best_amplitude=np.abs(result.best.field),
+        initial_amplitude=np.abs(initial_field),
+        target_amplitude=problem.target.target, target_weight=problem.target.weight,
+        loss_history=np.array([row["loss"] for row in result.history]),
+        best_loss_history=np.array([row["best_loss"] for row in result.history]),
+        gradient_norm_history=np.array([
+            np.nan if row["gradient_norm"] is None else row["gradient_norm"]
+            for row in result.history]),
+        evaluation_history=np.array([row["evaluation"] for row in result.history]),
+        elapsed_seconds_history=np.array([
+            row["elapsed_seconds"] for row in result.history]),
+    )
+    if cfg.training.compare_geometric:
+        phases = solver.transducers.compute_geometric_phases()
+        geometric_field = basis.field(phases, return_numpy=True)
+        reporting_evaluations += 1
+        output.update(
+            geometric_phases=phases, geometric_u_complex=geometric_field,
+            geometric_amplitude=np.abs(geometric_field),
+            geometric_amp_sq=np.abs(geometric_field)**2,
+            geometric_metrics=json.dumps(
+                problem.metrics(geometric_field), allow_nan=False
+            ),
+        )
+    metadata = {
+        "algorithm": cfg.algorithm, "algorithm_options": cfg.algorithm_options,
+        "seed": cfg.training.seed, "termination_reason": result.termination_reason,
+        "final_loss": result.final.loss, "best_loss": result.best.loss,
+        "final_metrics": result.final.metrics, "best_metrics": result.best.metrics,
+        "basis_build_or_load_seconds": basis_setup_seconds,
+        "reporting_field_evaluations": reporting_evaluations,
+        "reporting_seconds": time.perf_counter() - reporting_started,
+        **result.metadata,
+    }
+    if extra_metadata:
+        metadata.update(extra_metadata)
+    output["run_metadata"] = json.dumps(metadata, allow_nan=False)
+    output["evaluation_log"] = json.dumps(result.history, allow_nan=False)
+    path = Path(cfg.io.output_file)
+    if path.suffix != ".npz":
+        raise ValueError("io.output_file must end in .npz")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(path, **output)
+    print(f"[Main] Saved {path}")
+    return output, metadata
+
+
 def execute(cfg):
     if cfg.mode == "sdf_inverse":
         raise NotImplementedError(
@@ -57,47 +121,9 @@ def execute(cfg):
                 basis.to_gpu()
             setup_seconds = time.perf_counter() - started
             problem, result = run(cfg, basis)
-            reporting_started = time.perf_counter()
-            initial_field = basis.field(problem.initial_phases, return_numpy=True)
-            reporting_evaluations = 1
-            output = scene_metadata(cfg, solver)
-            output.update(
-                algorithm=cfg.algorithm,
-                phases=result.final.phases, u_complex=result.final.field,
-                amplitude=np.abs(result.final.field), amp_sq=np.abs(result.final.field)**2,
-                best_phases=result.best.phases, best_amplitude=np.abs(result.best.field),
-                initial_amplitude=np.abs(initial_field),
-                target_amplitude=problem.target.target, target_weight=problem.target.weight,
-                loss_history=np.array([row["loss"] for row in result.history]),
-                best_loss_history=np.array([row["best_loss"] for row in result.history]),
-                gradient_norm_history=np.array([
-                    np.nan if row["gradient_norm"] is None else row["gradient_norm"]
-                    for row in result.history]),
-                evaluation_history=np.array([row["evaluation"] for row in result.history]),
-                elapsed_seconds_history=np.array([
-                    row["elapsed_seconds"] for row in result.history]),
+            output, _ = save_phase_optimization_result(
+                cfg, solver, basis, problem, result, setup_seconds
             )
-            if cfg.training.compare_geometric:
-                phases = solver.transducers.compute_geometric_phases()
-                geometric_field = basis.field(phases, return_numpy=True)
-                reporting_evaluations += 1
-                output.update(
-                    geometric_phases=phases, geometric_u_complex=geometric_field,
-                    geometric_amplitude=np.abs(geometric_field),
-                    geometric_amp_sq=np.abs(geometric_field)**2,
-                    geometric_metrics=json.dumps(problem.metrics(geometric_field), allow_nan=False),
-                )
-            output["run_metadata"] = json.dumps({
-                "algorithm": cfg.algorithm, "algorithm_options": cfg.algorithm_options,
-                "seed": cfg.training.seed, "termination_reason": result.termination_reason,
-                "final_loss": result.final.loss, "best_loss": result.best.loss,
-                "final_metrics": result.final.metrics, "best_metrics": result.best.metrics,
-                "basis_build_or_load_seconds": setup_seconds,
-                "reporting_field_evaluations": reporting_evaluations,
-                "reporting_seconds": time.perf_counter() - reporting_started,
-                **result.metadata,
-            }, allow_nan=False)
-            output["evaluation_log"] = json.dumps(result.history, allow_nan=False)
             print(f"[Result] {cfg.algorithm}: {result.termination_reason}; "
                   f"final={result.final.loss:.6e} best={result.best.loss:.6e}")
         path = Path(cfg.io.output_file)

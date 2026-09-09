@@ -36,10 +36,10 @@ def validate_algorithm(cfg):
                           "Install: python -m pip install -r src/baselines/requirements.txt")
 
 
-def run(cfg, basis):
+def run(cfg, basis, loss_curve=None):
     from baselines.common import PhaseProblem
 
     validate_algorithm(cfg)
-    problem = PhaseProblem(cfg, basis)
+    problem = PhaseProblem(cfg, basis, loss_curve=loss_curve)
     module = import_module(f"baselines.{cfg.algorithm}")
     return problem, module.solve(problem, cfg.algorithm_options)

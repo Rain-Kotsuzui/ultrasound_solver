@@ -54,7 +54,7 @@ class AlgorithmResult:
 
 
 class PhaseProblem:
-    def __init__(self, cfg, basis):
+    def __init__(self, cfg, basis, loss_curve=None):
         self.cfg, self.basis = cfg, basis
         self.size = basis.num_transducers
         self.target = AmplitudeTarget.from_config(cfg)
@@ -94,13 +94,16 @@ class PhaseProblem:
         self.best = None
         self.last = None
         self.started = time.perf_counter()
-        from baselines.loss_curve import LiveLossCurve
+        if loss_curve is None:
+            from baselines.loss_curve import LiveLossCurve
 
-        self.loss_curve = LiveLossCurve(
-            cfg.training.show_loss_curve,
-            cfg.training.loss_curve_update_interval,
-            cfg.training.loss_curve_pause_seconds,
-        )
+            loss_curve = LiveLossCurve(
+                cfg.training.show_loss_curve,
+                cfg.training.loss_curve_update_interval,
+                cfg.training.loss_curve_pause_seconds,
+                cfg.algorithm,
+            )
+        self.loss_curve = loss_curve
 
     def _initial_phases(self):
         mode = self.cfg.training.initial_phase

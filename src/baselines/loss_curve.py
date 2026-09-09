@@ -1,111 +1,216 @@
-"""Non-blocking live loss curve shared by all phase optimization algorithms."""
+"""Live loss views with either one standalone chart or one comparison dashboard."""
 
+import math
 import warnings
 
 import numpy as np
 
 
-class LiveLossCurve:
-    def __init__(self, enabled: bool, update_interval: int, pause_seconds: float):
+def _interactive_pyplot():
+    import matplotlib.pyplot as plt
+
+    backend = plt.get_backend().lower()
+    non_interactive = {"agg", "cairo", "pdf", "pgf", "ps", "svg", "template"}
+    try:
+        from matplotlib.backends.registry import BackendFilter, backend_registry
+        non_interactive.update(
+            backend_registry.list_builtin(BackendFilter.NON_INTERACTIVE)
+        )
+    except ImportError:
+        pass
+    if backend in non_interactive:
+        raise RuntimeError(f"{backend} is not an interactive backend")
+    return plt
+
+
+def _keep_window_passive(figure):
+    """Do not request foreground focus when a GUI window is mapped."""
+    manager = figure.canvas.manager
+    window = getattr(manager, "window", None)
+    if window is not None:
+        try:
+            window.attributes("-topmost", False)
+        except Exception:
+            pass
+
+
+class ComparisonLossDashboard:
+    """One fixed grid of loss plots for a multi-algorithm comparison."""
+
+    def __init__(
+        self,
+        algorithms,
+        enabled=True,
+        pause_seconds=0.01,
+        tensorboard_log_dir=None,
+    ):
         self.enabled = bool(enabled)
-        self.update_interval = int(update_interval)
         self.pause_seconds = float(pause_seconds)
-        self.evaluations = []
-        self.losses = []
-        self.best_losses = []
         self._plt = None
         self._figure = None
-        self._axis = None
-        self._loss_line = None
-        self._best_line = None
-
-        if not self.enabled:
-            return
-        if self.update_interval < 1:
-            raise ValueError("loss_curve_update_interval must be at least 1")
-        if not np.isfinite(self.pause_seconds) or self.pause_seconds < 0:
-            raise ValueError("loss_curve_pause_seconds must be finite and nonnegative")
-        try:
-            import matplotlib.pyplot as plt
-            from matplotlib import rcsetup
-
-            backend = plt.get_backend().lower()
-            non_interactive = {
-                name.lower() for name in rcsetup.non_interactive_bk
-            }
-            if backend in non_interactive:
-                self.enabled = False
+        self._axes = {}
+        self._curves = {}
+        self._algorithms = list(algorithms)
+        self._writer = None
+        if tensorboard_log_dir:
+            try:
+                from torch.utils.tensorboard import SummaryWriter
+                self._writer = SummaryWriter(str(tensorboard_log_dir))
+            except Exception as exc:
                 warnings.warn(
-                    f"Live loss curve disabled: {backend} is not an interactive backend.",
+                    f"TensorBoard loss logging disabled: {exc}",
                     RuntimeWarning,
                     stacklevel=2,
                 )
-                return
-
-            plt.ion()
-            self._plt = plt
-            self._figure, self._axis = plt.subplots(
-                figsize=(8.5, 5.0), num="Ultrasound Phase Optimization Loss"
+        if not self.enabled:
+            return
+        if not np.isfinite(self.pause_seconds) or self.pause_seconds < 0:
+            raise ValueError("loss_curve_pause_seconds must be finite and nonnegative")
+        try:
+            self._plt = _interactive_pyplot()
+            count = max(1, len(self._algorithms))
+            columns = math.ceil(math.sqrt(count))
+            rows = math.ceil(count / columns)
+            self._figure, axes = self._plt.subplots(
+                rows, columns, figsize=(5.2 * columns, 3.4 * rows),
+                num="Ultrasound Algorithm Comparison Loss", clear=True,
+                squeeze=False,
             )
             self._figure.canvas.manager.set_window_title(
-                "Ultrasound Phase Optimization Loss"
+                "Ultrasound Algorithm Comparison Loss"
             )
-            self._loss_line, = self._axis.plot(
-                [], [], color="#2563eb", linewidth=1.6, alpha=0.72,
-                label="Current loss",
-            )
-            self._best_line, = self._axis.plot(
-                [], [], color="#dc2626", linewidth=2.1, label="Best loss",
-            )
-            self._axis.set_title("Live Phase Optimization Loss")
-            self._axis.set_xlabel("Field evaluations")
-            self._axis.set_ylabel("Loss")
-            self._axis.grid(True, alpha=0.28)
-            self._axis.legend(loc="best")
+            flat_axes = list(np.asarray(axes, dtype=object).reshape(-1))
+            for axis, algorithm in zip(flat_axes, self._algorithms):
+                self._axes[algorithm] = axis
+                axis.set_title(algorithm)
+                axis.set_xlabel("Field evaluations")
+                axis.set_ylabel("Loss")
+                axis.grid(True, alpha=0.28)
+            for axis in flat_axes[len(self._algorithms):]:
+                axis.set_visible(False)
             self._figure.tight_layout()
+            _keep_window_passive(self._figure)
+            # Map once; subsequent loss updates only redraw this existing canvas.
             self._figure.show()
-            self._draw()
         except Exception as exc:
             self.enabled = False
             warnings.warn(
-                f"Live loss curve disabled: {exc}",
+                f"Comparison loss dashboard disabled: {exc}",
                 RuntimeWarning,
                 stacklevel=2,
             )
 
-    def update(self, row: dict):
+    def curve(self, algorithm, update_interval):
+        if algorithm not in self._axes:
+            return LiveLossCurve(False, update_interval, self.pause_seconds, algorithm)
+        curve = DashboardLossCurve(
+            self, self._axes[algorithm], algorithm, update_interval
+        )
+        self._curves[algorithm] = curve
+        return curve
+
+    def flush(self):
+        if not self.enabled or self._figure is None:
+            return
+        try:
+            self._figure.canvas.draw_idle()
+            self._figure.canvas.flush_events()
+            _keep_window_passive(self._figure)
+        except Exception:
+            self.enabled = False
+
+    def log_tensorboard(self, algorithm, row):
+        if self._writer is None:
+            return
+        step = int(row["evaluation"])
+        self._writer.add_scalar(f"{algorithm}/loss_current", row["loss"], step)
+        self._writer.add_scalar(f"{algorithm}/loss_best", row["best_loss"], step)
+        self._writer.add_scalar(
+            f"{algorithm}/target_mean", row["target_mean"], step
+        )
+        self._writer.add_scalar(
+            f"{algorithm}/background_max", row["background_max"], step
+        )
+
+    def close(self):
+        if self._writer is not None:
+            self._writer.close()
+
+
+class DashboardLossCurve:
+    def __init__(self, dashboard, axis, title, update_interval):
+        self.dashboard = dashboard
+        self.axis = axis
+        self.title = title
+        self.update_interval = int(update_interval)
+        self.enabled = dashboard.enabled and self.update_interval >= 1
+        self.evaluations = []
+        self.losses = []
+        self.best_losses = []
+        if self.enabled:
+            self.loss_line, = axis.plot(
+                [], [], color="#2563eb", linewidth=1.4, alpha=0.72,
+                label="Current",
+            )
+            self.best_line, = axis.plot(
+                [], [], color="#dc2626", linewidth=1.9, label="Best",
+            )
+            axis.legend(loc="best", fontsize=8)
+
+    def update(self, row):
         if not self.enabled:
             return
         self.evaluations.append(int(row["evaluation"]))
         self.losses.append(float(row["loss"]))
         self.best_losses.append(float(row["best_loss"]))
+        self.dashboard.log_tensorboard(self.title, row)
         if len(self.evaluations) % self.update_interval == 0:
             self._draw()
 
-    def finalize(self, termination_reason: str):
+    def finalize(self, termination_reason):
         if not self.enabled:
             return
         self._draw()
-        self._axis.set_title(
-            f"Phase Optimization Loss ({termination_reason})"
-        )
-        self._figure.canvas.draw_idle()
-        self._flush()
+        self.axis.set_title(f"{self.title} ({termination_reason})")
+        self.dashboard.flush()
 
     def _draw(self):
-        if not self.evaluations:
-            return
-        self._loss_line.set_data(self.evaluations, self.losses)
-        self._best_line.set_data(self.evaluations, self.best_losses)
-        self._axis.relim()
-        self._axis.autoscale_view()
-        self._figure.canvas.draw_idle()
-        self._flush()
+        self.loss_line.set_data(self.evaluations, self.losses)
+        self.best_line.set_data(self.evaluations, self.best_losses)
+        self.axis.relim()
+        self.axis.autoscale_view()
+        self.dashboard.flush()
 
-    def _flush(self):
-        try:
-            self._figure.canvas.flush_events()
-            self._plt.pause(self.pause_seconds)
-        except Exception:
-            # GUI backends can be closed by the user while the optimization continues.
-            self.enabled = False
+
+class LiveLossCurve:
+    """Standalone loss curve for a normal single-algorithm run."""
+
+    def __init__(self, enabled, update_interval, pause_seconds, title="phase_optimization"):
+        self.enabled = bool(enabled)
+        self.update_interval = int(update_interval)
+        self.pause_seconds = float(pause_seconds)
+        self.title = title
+        self.evaluations = []
+        self.losses = []
+        self.best_losses = []
+        self._dashboard = None
+        self._curve = None
+
+    def _ensure(self):
+        if not self.enabled or self._curve is not None:
+            return
+        self._dashboard = ComparisonLossDashboard(
+            [self.title], enabled=True, pause_seconds=self.pause_seconds
+        )
+        self._curve = self._dashboard.curve(self.title, self.update_interval)
+        self.enabled = self._curve.enabled
+
+    def update(self, row):
+        self._ensure()
+        if self.enabled:
+            self._curve.update(row)
+
+    def finalize(self, termination_reason):
+        self._ensure()
+        if self.enabled:
+            self._curve.finalize(termination_reason)
