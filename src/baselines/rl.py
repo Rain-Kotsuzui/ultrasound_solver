@@ -9,7 +9,9 @@ import time
 import gymnasium as gym
 import numpy as np
 
-from baselines.common import BudgetExhausted, positive_float, positive_int, wrap
+from baselines.common import (
+    BudgetExhausted, TimeBudgetExhausted, positive_float, positive_int, wrap,
+)
 
 
 class PhaseEnv(gym.Env):
@@ -94,6 +96,7 @@ def _file_hash(name):
 
 def solve_rl(problem, options, method):
     from stable_baselines3 import PPO, SAC
+    from stable_baselines3.common.callbacks import BaseCallback
 
     cls = {"sac": SAC, "ppo": PPO}[method]
     horizon = positive_int(options.get("episode_steps", 32), "episode_steps")
@@ -122,6 +125,14 @@ def solve_rl(problem, options, method):
     start = time.perf_counter()
     trained_evaluations = 0
     reason = "training_steps"
+    class WallClockCallback(BaseCallback):
+        def _on_step(self):
+            nonlocal reason
+            if problem.field_evaluations > 0 and problem.time_remaining_seconds <= 0:
+                reason = "training_time_budget"
+                return False
+            return True
+
     try:
         if run_mode == "evaluate":
             meta = json.loads(metadata_path.read_text(encoding="utf-8"))
@@ -149,9 +160,16 @@ def solve_rl(problem, options, method):
             model = cls("MlpPolicy", env, **kwargs)
             problem.reserve_evaluations(reserved)
             try:
-                model.learn(total_timesteps=training_steps)
-            except BudgetExhausted:
-                reason = "training_evaluation_budget"
+                model.learn(
+                    total_timesteps=training_steps,
+                    callback=WallClockCallback(),
+                )
+            except BudgetExhausted as exc:
+                reason = (
+                    "training_time_budget"
+                    if isinstance(exc, TimeBudgetExhausted)
+                    else "training_evaluation_budget"
+                )
             finally:
                 problem.release_evaluations(reserved)
             trained_evaluations = problem.field_evaluations

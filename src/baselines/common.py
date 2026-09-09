@@ -15,6 +15,10 @@ class BudgetExhausted(RuntimeError):
     pass
 
 
+class TimeBudgetExhausted(BudgetExhausted):
+    pass
+
+
 def positive_int(value, name, minimum=1):
     if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or value < minimum:
         raise ValueError(f"{name} must be an integer >= {minimum}")
@@ -84,6 +88,10 @@ class PhaseProblem:
         self.evaluation_budget = positive_int(
             cfg.training.max_evaluations, "max_evaluations"
         )
+        self.time_budget_seconds = float(cfg.training.max_seconds)
+        if (not np.isfinite(self.time_budget_seconds)
+                or self.time_budget_seconds < 0):
+            raise ValueError("max_seconds must be finite and nonnegative")
         self._reserved_evaluations = 0
         self.iterations = positive_int(cfg.training.iterations, "iterations", 0)
         self.rng = np.random.default_rng(cfg.training.seed)
@@ -124,6 +132,16 @@ class PhaseProblem:
     def remaining(self):
         return self.evaluation_budget - self._reserved_evaluations - self.field_evaluations
 
+    @property
+    def elapsed_seconds(self):
+        return time.perf_counter() - self.started
+
+    @property
+    def time_remaining_seconds(self):
+        if self.time_budget_seconds == 0:
+            return float("inf")
+        return self.time_budget_seconds - self.elapsed_seconds
+
     def metrics(self, field):
         amplitude = np.abs(field)
         values = np.array([amplitude[i] for i in self.target_indices])
@@ -145,6 +163,9 @@ class PhaseProblem:
         }
 
     def evaluate(self, phases, gradient=False, stage="optimization"):
+        # Every method must produce one valid initial candidate for reporting.
+        if self.field_evaluations > 0 and self.time_remaining_seconds <= 0:
+            raise TimeBudgetExhausted("wall-clock time budget exhausted")
         if self.remaining <= 0:
             raise BudgetExhausted("field evaluation budget exhausted")
         phases = wrap(phases)
@@ -168,7 +189,7 @@ class PhaseProblem:
             self.best = evaluation
         row = {
             "evaluation": self.field_evaluations, "vjp_evaluations": self.vjp_evaluations,
-            "elapsed_seconds": time.perf_counter() - self.started,
+            "elapsed_seconds": self.elapsed_seconds,
             "loss": loss, "best_loss": self.best.loss, "stage": stage,
             "gradient_norm": float(np.linalg.norm(grad)) if grad is not None else None,
             **evaluation.metrics,
@@ -203,5 +224,6 @@ class PhaseProblem:
             final, self.best, list(self.history), reason,
             {"field_evaluations": self.field_evaluations,
              "vjp_evaluations": self.vjp_evaluations,
-             "elapsed_seconds": time.perf_counter() - self.started, **metadata},
+             "elapsed_seconds": self.elapsed_seconds,
+             "time_budget_seconds": self.time_budget_seconds, **metadata},
         )

@@ -57,17 +57,29 @@ python src/compare.py --config src/examples/phase_oblique_reflecting_x_12x12.yam
 outputs/algs/phase_oblique_reflecting_x_12x12/
   summary.csv
   summary.json
+  loss_dashboard.png
   <algorithm>/config.yaml
   <algorithm>/result.npz
+  <algorithm>/result_loss.png
 ```
 
 `--algorithms adjoint,gabs,spsa` 可只运行指定算法；`--no-loss-window` 用于无图形界面的批处理。SAC、PPO、CMA-ES 需要先安装 `src/baselines/requirements.txt` 中的可选依赖。
+
+默认每种迭代算法有相同的 `60 s` 墙钟时间上限；`--max-seconds 120` 可覆盖该比较预算。`iterations` 和 `max_evaluations` 只是各算法的安全上限，汇总表以实际用时、场评估数、VJP 数和 best loss 为准。
 
 比较过程还会写入 TensorBoard 标量事件，不会自动打开或抢占浏览器。查看全部算法的交互式 loss 曲线：
 
 ```powershell
 tensorboard --logdir outputs/algs/phase_oblique_reflecting_x_12x12/tensorboard
 ```
+
+浏览已完成算法的三维振幅场：
+
+```powershell
+python src/compare_visualizer.py outputs/algs/phase_oblique_reflecting_x_12x12
+```
+
+主视图的 `Algorithm index` 滑条切换算法，`Iso percentile` 滑条调节等值面阈值；原生下拉菜单可切换最终场、最佳已评估场、初始场和几何相位场。
 
 ## Config 参数
 
@@ -148,6 +160,7 @@ algorithm_options:
 - `sidelobe_temperature`: `focal_contrast` 平滑最大旁瓣的温度参数，单位 `Pa`。
 - `iterations`: 优化迭代次数。
 - `max_evaluations`: 单次任务可用的总声场评估次数上限；GABS、SPSA、RL、CMA-ES 和伴随法都使用此上限。
+- `max_seconds`: 单次任务可用的墙钟时间上限，单位 `s`；`0` 表示不限制。`compare.py` 默认将其设为统一的 `60 s`。
 - `seed`: 随机算法与 RL 的随机种子。
 - `show_loss_curve`: 是否在相位优化时显示实时 loss 曲线窗口。
 - `loss_curve_update_interval`: 每隔多少次真实场评估刷新曲线；横轴始终是场评估次数。

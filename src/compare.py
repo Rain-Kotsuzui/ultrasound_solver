@@ -14,7 +14,7 @@ import yaml
 
 from baselines import ALGORITHMS, run, validate_algorithm
 from config import SimulationConfig
-from baselines.loss_curve import ComparisonLossDashboard
+from baselines.loss_curve import ComparisonLossDashboard, save_loss_dashboard
 from main import save_phase_optimization_result
 from solvers.helmholtz_solver import HelmholtzDirectSolver
 
@@ -22,24 +22,25 @@ from solvers.helmholtz_solver import HelmholtzDirectSolver
 PROFILES = {
     "geometric": {
         "algorithm_options": {},
-        "training": {"iterations": 0, "max_evaluations": 8},
+        "training": {"iterations": 0, "max_evaluations": 8, "max_seconds": 60.0},
     },
     "response_alignment": {
         "algorithm_options": {},
-        "training": {"iterations": 0, "max_evaluations": 8},
+        "training": {"iterations": 0, "max_evaluations": 8, "max_seconds": 60.0},
     },
     "adjoint": {
         "algorithm_options": {
             "optimizer": "lbfgsb",
             "gradient_check": False,
         },
-        "training": {"iterations": 300, "max_evaluations": 5000},
+        "training": {"iterations": 1000, "max_evaluations": 5000, "max_seconds": 60.0},
     },
     "gabs": {
         "algorithm_options": {"phase_levels": 8},
         "training": {
             "iterations": 2,
             "max_evaluations": 3000,
+            "max_seconds": 60.0,
             "loss_curve_update_interval": 16,
         },
     },
@@ -53,6 +54,7 @@ PROFILES = {
         "training": {
             "iterations": 800,
             "max_evaluations": 3000,
+            "max_seconds": 60.0,
             "loss_curve_update_interval": 5,
         },
     },
@@ -61,6 +63,7 @@ PROFILES = {
         "training": {
             "iterations": 100,
             "max_evaluations": 2500,
+            "max_seconds": 60.0,
             "loss_curve_update_interval": 12,
         },
     },
@@ -82,6 +85,7 @@ PROFILES = {
         "training": {
             "iterations": 1,
             "max_evaluations": 9000,
+            "max_seconds": 60.0,
             "loss_curve_update_interval": 50,
         },
     },
@@ -102,19 +106,24 @@ PROFILES = {
         "training": {
             "iterations": 1,
             "max_evaluations": 9000,
+            "max_seconds": 60.0,
             "loss_curve_update_interval": 50,
         },
     },
 }
 
 
-def _copy_profile(base_cfg, algorithm, output_dir, show_loss_curve):
+def _copy_profile(
+    base_cfg, algorithm, output_dir, show_loss_curve, max_seconds=None
+):
     cfg = copy.deepcopy(base_cfg)
     profile = PROFILES[algorithm]
     cfg.algorithm = algorithm
     cfg.algorithm_options = copy.deepcopy(profile["algorithm_options"])
     for key, value in profile["training"].items():
         setattr(cfg.training, key, value)
+    if max_seconds is not None:
+        cfg.training.max_seconds = float(max_seconds)
     # Iterative methods use the same information-limited initial point.
     if algorithm not in {"geometric", "response_alignment"}:
         cfg.training.initial_phase = "geometric"
@@ -141,6 +150,7 @@ def _summary_row(algorithm, status, metadata=None, error=None):
             field_evaluations=metadata["field_evaluations"],
             vjp_evaluations=metadata["vjp_evaluations"],
             optimization_seconds=metadata["elapsed_seconds"],
+            time_budget_seconds=metadata.get("time_budget_seconds"),
             termination_reason=metadata["termination_reason"],
         )
     return row
@@ -165,7 +175,8 @@ def _write_summary(output_dir, base_cfg, rows, basis_seconds, selected_algorithm
 
 
 def compare(config_path, output_root="outputs/algs", algorithms=None,
-            show_loss_curve=True, basis_on_gpu=False, tensorboard_log_dir=None):
+            show_loss_curve=True, basis_on_gpu=False, tensorboard_log_dir=None,
+            max_seconds=None):
     base_cfg = SimulationConfig.from_yaml(config_path)
     if base_cfg.mode != "phase_optimization":
         raise ValueError("compare.py requires mode: phase_optimization")
@@ -180,6 +191,7 @@ def compare(config_path, output_root="outputs/algs", algorithms=None,
     solver = HelmholtzDirectSolver(base_cfg)
     basis = None
     rows = []
+    histories = {}
     tensorboard_dir = (
         Path(tensorboard_log_dir)
         if tensorboard_log_dir
@@ -199,7 +211,7 @@ def compare(config_path, output_root="outputs/algs", algorithms=None,
         basis_seconds = time.perf_counter() - started
         for algorithm in selected:
             cfg = _copy_profile(
-                base_cfg, algorithm, output_dir, show_loss_curve
+                base_cfg, algorithm, output_dir, show_loss_curve, max_seconds
             )
             method_dir = output_dir / algorithm
             method_dir.mkdir(parents=True, exist_ok=True)
@@ -221,6 +233,7 @@ def compare(config_path, output_root="outputs/algs", algorithms=None,
                         "comparison_profile": PROFILES[algorithm],
                     },
                 )
+                histories[algorithm] = result.history
                 rows.append(_summary_row(algorithm, "completed", metadata))
             except Exception as exc:
                 error = f"{type(exc).__name__}: {exc}"
@@ -232,6 +245,7 @@ def compare(config_path, output_root="outputs/algs", algorithms=None,
                 print(f"[Compare] {algorithm} failed: {error}")
             _write_summary(output_dir, config_path, rows, basis_seconds, selected)
     finally:
+        save_loss_dashboard(histories, output_dir / "loss_dashboard.png")
         dashboard.close()
         if basis is not None:
             basis.close()
@@ -266,6 +280,12 @@ def main():
         default=None,
         help="TensorBoard event directory; defaults to <output>/<scene>/tensorboard.",
     )
+    parser.add_argument(
+        "--max-seconds",
+        type=float,
+        default=None,
+        help="Shared per-algorithm wall-clock budget in seconds; defaults to 60.",
+    )
     args = parser.parse_args()
     selected = [name.strip() for name in args.algorithms.split(",") if name.strip()]
     rows = compare(
@@ -273,6 +293,7 @@ def main():
         show_loss_curve=not args.no_loss_window,
         basis_on_gpu=args.basis_on_gpu,
         tensorboard_log_dir=args.tensorboard_logdir,
+        max_seconds=args.max_seconds,
     )
     completed = sum(row["status"] == "completed" for row in rows)
     print(f"[Compare] completed {completed}/{len(rows)} algorithms")

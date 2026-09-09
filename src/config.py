@@ -90,6 +90,7 @@ class TrainingConfig:
     iterations: int = 100
     seed: int = 0
     max_evaluations: int = 10000
+    max_seconds: float = 0.0
     show_loss_curve: bool = True
     loss_curve_update_interval: int = 1
     loss_curve_pause_seconds: float = 0.01

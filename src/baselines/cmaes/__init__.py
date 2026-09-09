@@ -1,6 +1,8 @@
 """CMA-ES adapter using the optional cma package."""
 
-from baselines.common import BudgetExhausted, positive_float, positive_int
+from baselines.common import (
+    BudgetExhausted, TimeBudgetExhausted, positive_float, positive_int,
+)
 
 
 def solve(problem, options):
@@ -20,6 +22,7 @@ def solve(problem, options):
             candidates = strategy.ask()
             losses = [problem.evaluate(candidate).loss for candidate in candidates]
             strategy.tell(candidates, losses)
-    except BudgetExhausted:
-        return problem.result(problem.best, "evaluation_budget")
+    except BudgetExhausted as exc:
+        reason = "time_budget" if isinstance(exc, TimeBudgetExhausted) else "evaluation_budget"
+        return problem.result(problem.best, reason)
     return problem.result(problem.best, "iteration_limit")

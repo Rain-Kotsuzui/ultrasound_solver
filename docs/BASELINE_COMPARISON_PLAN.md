@@ -194,7 +194,7 @@ L = -alpha * mean(|u[target]|) + beta * smoothmax_T(|u[background]|)
 
 ### 5.2 预算与时间
 
-必须同时报告计算次数与墙钟时间，不把“一次迭代”视为共同单位：
+必须同时报告计算次数与墙钟时间，不把“一次迭代”视为共同单位。`compare.py` 为迭代算法设置统一 `60 s` 墙钟预算，可通过 `--max-seconds` 覆盖：
 
 | 项目 | 计数原则 |
 |---|---|
@@ -333,6 +333,12 @@ outputs/baseline_comparison/<run_id>/
 python src/main.py --config src/examples/config.yaml
 ```
 
-SAC、PPO、CMA-ES 的可选依赖单独列在 `src/baselines/requirements.txt`。首版不提供多算法批处理 runner；在完成真实求解器的统一结果表后，再增加只读取结果的聚合工具，避免把训练、测试和后处理成本混在一起。
+固定场景的统一比较入口：
+
+```text
+python src/compare.py --config src/examples/phase_oblique_reflecting_x_12x12.yaml
+```
+
+它只构建/加载一次物理响应基，逐项写入 `outputs/algs/<scene>/<algorithm>/`，并生成 `summary.csv/json`。SAC、PPO、CMA-ES 的可选依赖单独列在 `src/baselines/requirements.txt`。
 
 **下一步：在现有斜向反射配置上完成各算法的真实响应基运行和统一结果表。**

@@ -1,0 +1,46 @@
+{
+  "source_config": "C:\\workspace\\ultrasound_solver\\algorithm_comparison\\config\\phase_oblique_reflecting_x_12x12.yaml",
+  "algorithms": [
+    "geometric",
+    "response_alignment",
+    "adjoint",
+    "gabs",
+    "spsa",
+    "cmaes",
+    "sac",
+    "ppo"
+  ],
+  "shared_basis_build_or_load_seconds": 4.889111299999058,
+  "rows": [
+    {
+      "algorithm": "geometric",
+      "status": "completed",
+      "error": "",
+      "best_loss": 1788.4247607354382,
+      "final_loss": 1788.4247607354382,
+      "target_mean": 571.4049399324853,
+      "background_max": 1870.1748399183157,
+      "contrast": 0.3055355722556094,
+      "field_evaluations": 1,
+      "vjp_evaluations": 0,
+      "optimization_seconds": 3.7315458999946713,
+      "time_budget_seconds": 60.0,
+      "termination_reason": "analytic"
+    },
+    {
+      "algorithm": "response_alignment",
+      "status": "completed",
+      "error": "",
+      "best_loss": -1220.6754181386677,
+      "final_loss": -1220.6754181386677,
+      "target_mean": 3709.561253222314,
+      "background_max": 1969.7113598645647,
+      "contrast": 1.883301954189562,
+      "field_evaluations": 1,
+      "vjp_evaluations": 0,
+      "optimization_seconds": 1.273577000014484,
+      "time_budget_seconds": 60.0,
+      "termination_reason": "analytic"
+    }
+  ]
+}

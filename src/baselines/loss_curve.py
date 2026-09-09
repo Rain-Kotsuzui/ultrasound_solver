@@ -6,6 +6,72 @@ import warnings
 import numpy as np
 
 
+def save_loss_history(history, output_path, title):
+    """Write a durable, headless-safe PNG from recorded evaluation history."""
+    if not history:
+        return None
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.figure import Figure
+
+    output_path = str(output_path)
+    evaluations = [row["evaluation"] for row in history]
+    losses = [row["loss"] for row in history]
+    best_losses = [row["best_loss"] for row in history]
+    figure = Figure(figsize=(8.5, 5.0), constrained_layout=True)
+    FigureCanvasAgg(figure)
+    axis = figure.add_subplot(1, 1, 1)
+    marker = "o" if len(evaluations) == 1 else None
+    axis.plot(evaluations, losses, color="#2563eb", linewidth=1.3,
+              alpha=0.72, marker=marker, label="Current loss")
+    axis.plot(evaluations, best_losses, color="#dc2626", linewidth=2.0,
+              marker=marker, label="Best loss")
+    axis.set_title(title)
+    axis.set_xlabel("Field evaluations")
+    axis.set_ylabel("Loss")
+    axis.grid(True, alpha=0.28)
+    axis.legend(loc="best")
+    figure.savefig(output_path, dpi=180)
+    return output_path
+
+
+def save_loss_dashboard(histories, output_path):
+    """Write all completed algorithms into one static loss-dashboard PNG."""
+    if not histories:
+        return None
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.figure import Figure
+
+    names = list(histories)
+    columns = math.ceil(math.sqrt(len(names)))
+    rows = math.ceil(len(names) / columns)
+    figure = Figure(
+        figsize=(5.2 * columns, 3.5 * rows),
+        constrained_layout=True,
+    )
+    FigureCanvasAgg(figure)
+    for index, name in enumerate(names):
+        axis = figure.add_subplot(rows, columns, index + 1)
+        history = histories[name]
+        evaluations = [row["evaluation"] for row in history]
+        marker = "o" if len(evaluations) == 1 else None
+        axis.plot(
+            evaluations, [row["loss"] for row in history],
+            color="#2563eb", linewidth=1.1, alpha=0.72, marker=marker,
+            label="Current",
+        )
+        axis.plot(
+            evaluations, [row["best_loss"] for row in history],
+            color="#dc2626", linewidth=1.7, marker=marker, label="Best",
+        )
+        axis.set_title(name)
+        axis.set_xlabel("Field evaluations")
+        axis.set_ylabel("Loss")
+        axis.grid(True, alpha=0.28)
+        axis.legend(loc="best", fontsize=8)
+    figure.savefig(str(output_path), dpi=180)
+    return str(output_path)
+
+
 def _interactive_pyplot():
     import matplotlib.pyplot as plt
 

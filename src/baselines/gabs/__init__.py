@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from baselines.common import BudgetExhausted, positive_int
+from baselines.common import BudgetExhausted, TimeBudgetExhausted, positive_int
 
 
 def solve(problem, options):
@@ -24,7 +24,8 @@ def solve(problem, options):
                 current = selected
             if not improved:
                 return problem.result(current, "no_improvement")
-    except BudgetExhausted:
+    except BudgetExhausted as exc:
         # The interrupted coordinate may contain a better evaluated candidate.
-        return problem.result(problem.best, "evaluation_budget")
+        reason = "time_budget" if isinstance(exc, TimeBudgetExhausted) else "evaluation_budget"
+        return problem.result(problem.best, reason)
     return problem.result(current, "iteration_limit")

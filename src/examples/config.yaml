@@ -66,6 +66,7 @@ training:
   sidelobe_temperature: 25.0       # focal_contrast 平滑最大旁瓣温度 (Pa)
   iterations: 100                  # 相位优化迭代次数
   max_evaluations: 10000           # 全部算法共享的场评估次数上限
+  max_seconds: 0.0                 # 单任务墙钟时间上限（s）；0 表示不限制
   seed: 0                          # GABS、SPSA、RL、CMA-ES 的随机种子
   show_loss_curve: true            # 训练期间显示当前 loss 与历史最优 loss
   loss_curve_update_interval: 1    # 每隔多少次场评估刷新一次窗口

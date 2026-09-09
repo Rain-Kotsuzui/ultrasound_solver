@@ -72,6 +72,10 @@ def save_phase_optimization_result(
                 problem.metrics(geometric_field), allow_nan=False
             ),
         )
+    path = Path(cfg.io.output_file)
+    if path.suffix != ".npz":
+        raise ValueError("io.output_file must end in .npz")
+    loss_plot_path = path.with_name(f"{path.stem}_loss.png")
     metadata = {
         "algorithm": cfg.algorithm, "algorithm_options": cfg.algorithm_options,
         "seed": cfg.training.seed, "termination_reason": result.termination_reason,
@@ -80,17 +84,21 @@ def save_phase_optimization_result(
         "basis_build_or_load_seconds": basis_setup_seconds,
         "reporting_field_evaluations": reporting_evaluations,
         "reporting_seconds": time.perf_counter() - reporting_started,
+        "loss_plot_file": str(loss_plot_path),
         **result.metadata,
     }
     if extra_metadata:
         metadata.update(extra_metadata)
     output["run_metadata"] = json.dumps(metadata, allow_nan=False)
     output["evaluation_log"] = json.dumps(result.history, allow_nan=False)
-    path = Path(cfg.io.output_file)
-    if path.suffix != ".npz":
-        raise ValueError("io.output_file must end in .npz")
     path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(path, **output)
+    from baselines.loss_curve import save_loss_history
+    save_loss_history(
+        result.history,
+        loss_plot_path,
+        f"{cfg.algorithm}: current and best loss",
+    )
     print(f"[Main] Saved {path}")
     return output, metadata
 

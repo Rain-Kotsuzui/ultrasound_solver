@@ -1,6 +1,7 @@
 import contextlib
 import importlib.util
 import io
+import json
 from pathlib import Path
 import sys
 import tempfile
@@ -13,8 +14,12 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from baselines import run, validate_algorithm, ALGORITHMS
-from baselines.common import PhaseProblem, BudgetExhausted
+from baselines.common import (
+    PhaseProblem, BudgetExhausted, TimeBudgetExhausted,
+)
+from compare_visualizer import _load_results
 from baselines.loss_curve import ComparisonLossDashboard
+from baselines.loss_curve import save_loss_dashboard, save_loss_history
 from compare import PROFILES, _copy_profile, _summary_row
 from config import (SimulationConfig, PhysicsConfig, TransducerSpecsConfig,
                     DomainConfig, IOConfig, TrainingConfig)
@@ -120,6 +125,12 @@ class BaselineTests(unittest.TestCase):
         p.evaluate(np.zeros(4))
         with self.assertRaises(BudgetExhausted):
             p.evaluate(np.zeros(4))
+        cfg = config()
+        cfg.training.max_seconds = 1e-12
+        p = PhaseProblem(cfg, ToyBasis(cfg))
+        p.evaluate(np.zeros(4))
+        with self.assertRaises(TimeBudgetExhausted):
+            p.evaluate(np.zeros(4))
         cfg.algorithm = "unknown"
         with self.assertRaises(ValueError):
             validate_algorithm(cfg)
@@ -153,6 +164,21 @@ class BaselineTests(unittest.TestCase):
             self.assertEqual(len(adjoint.losses), 1)
             self.assertEqual(len(spsa.losses), 1)
 
+    def test_static_loss_pngs_are_saved_without_gui(self):
+        history = [
+            {"evaluation": 1, "loss": 3.0, "best_loss": 3.0},
+            {"evaluation": 2, "loss": 4.0, "best_loss": 3.0},
+            {"evaluation": 3, "loss": 2.0, "best_loss": 2.0},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            curve = root / "curve.png"
+            dashboard = root / "dashboard.png"
+            save_loss_history(history, curve, "test")
+            save_loss_dashboard({"adjoint": history, "spsa": history}, dashboard)
+            self.assertGreater(curve.stat().st_size, 1000)
+            self.assertGreater(dashboard.stat().st_size, 1000)
+
     def test_comparison_profiles_use_shared_initialization_and_budget(self):
         root = Path("outputs/test_compare_profiles")
         try:
@@ -180,6 +206,30 @@ class BaselineTests(unittest.TestCase):
         cfg.algorithm_options = {"typo": 3}
         with self.assertRaises(ValueError):
             validate_algorithm(cfg)
+
+    def test_comparison_result_loader(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            summary = {
+                "rows": [
+                    {"algorithm": "adjoint", "status": "completed"},
+                    {"algorithm": "broken", "status": "failed"},
+                ]
+            }
+            (root / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
+            (root / "adjoint").mkdir()
+            np.savez(
+                root / "adjoint" / "result.npz",
+                amplitude=np.ones((3, 3, 3)),
+                best_amplitude=np.ones((3, 3, 3)) * 2,
+                dx=np.array(0.1),
+                source_positions=np.empty((0, 3)),
+                target_points=np.array([[0.1, 0.1, 0.1]]),
+            )
+            _, static, results = _load_results(root)
+            self.assertEqual(list(results), ["adjoint"])
+            self.assertIn("best_amplitude", results["adjoint"])
+            self.assertEqual(float(static["dx"]), 0.1)
 
     def test_modes_and_no_legacy_parser(self):
         cfg = config()

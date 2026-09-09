@@ -1,6 +1,6 @@
 """Simultaneous perturbation stochastic approximation."""
 
-from baselines.common import positive_float, BudgetExhausted
+from baselines.common import positive_float, BudgetExhausted, TimeBudgetExhausted
 
 
 def solve(problem, options):
@@ -17,6 +17,7 @@ def solve(problem, options):
             minus = problem.evaluate(current.phases - c * delta)
             estimate = (plus.loss - minus.loss) * delta / (2 * c)
             current = problem.evaluate(current.phases - learning_rate / step**alpha * estimate)
-    except BudgetExhausted:
-        return problem.result(current, "evaluation_budget")
+    except BudgetExhausted as exc:
+        reason = "time_budget" if isinstance(exc, TimeBudgetExhausted) else "evaluation_budget"
+        return problem.result(current, reason)
     return problem.result(current, "iteration_limit")

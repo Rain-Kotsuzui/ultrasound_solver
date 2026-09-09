@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from baselines.common import BudgetExhausted, positive_float
+from baselines.common import BudgetExhausted, TimeBudgetExhausted, positive_float
 
 
 def solve(problem, options):
@@ -61,5 +61,6 @@ def solve(problem, options):
             current = problem.evaluate(result.x, gradient=True)
         return problem.result(current, "converged" if result.success else "optimizer_stopped",
                               optimizer_message=str(result.message), gradient_checks=checks)
-    except BudgetExhausted:
-        return problem.result(current, "evaluation_budget", gradient_checks=checks)
+    except BudgetExhausted as exc:
+        reason = "time_budget" if isinstance(exc, TimeBudgetExhausted) else "evaluation_budget"
+        return problem.result(current, reason, gradient_checks=checks)

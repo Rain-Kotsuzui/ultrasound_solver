@@ -1,0 +1,3 @@
+algorithm,background_max,best_loss,contrast,error,field_evaluations,final_loss,optimization_seconds,status,target_mean,termination_reason,time_budget_seconds,vjp_evaluations
+geometric,1870.1748399183157,1788.4247607354382,0.3055355722556094,,1,1788.4247607354382,3.7315458999946713,completed,571.4049399324853,analytic,60.0,0
+response_alignment,1969.7113598645647,-1220.6754181386677,1.883301954189562,,1,-1220.6754181386677,1.273577000014484,completed,3709.561253222314,analytic,60.0,0

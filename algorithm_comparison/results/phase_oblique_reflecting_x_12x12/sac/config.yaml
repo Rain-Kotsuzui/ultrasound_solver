@@ -1,0 +1,86 @@
+mode: phase_optimization
+physics:
+  sound_speed: 343.0
+  medium_density: 1.21
+specs:
+  frequency: 40000.0
+  spl_db: 115.0
+  spl_distance: 0.3
+  diameter: 0.01
+  pitch: 0.01
+  array_n: 12
+domain:
+  box_size:
+  - 0.12
+  - 0.12
+  - 0.12
+  grid_size:
+  - 41
+  - 41
+  - 41
+boundary_conditions:
+  -x: open
+  +x: reflecting
+  -y: open
+  +y: open
+  -z: reflecting
+  +z: open
+targets:
+- - 0.09
+  - 0.09
+  - 0.09
+obstacles: []
+io:
+  output_file: outputs\algs\phase_oblique_reflecting_x_12x12\sac\result.npz
+  auto_visualize: false
+  colormap: plasma
+training:
+  loss_type: focal_contrast
+  initial_phase: geometric
+  compare_geometric: true
+  phase_basis_file: outputs/phase_oblique_reflecting_x_12x12/phase_response_basis.npy
+  phase_basis_batch_size: 12
+  voxel_chunk_size: 131072
+  load_basis_to_gpu: false
+  release_factor_after_basis: true
+  target_field_file: ''
+  target_peak_pressure: 600.0
+  target_sigma: 0.006
+  background_pressure: 0.0
+  target_weight: 1.0
+  background_weight: 1.3
+  target_radius: 0.008
+  source_exclusion_layers: 4
+  sidelobe_temperature: 5.0
+  iterations: 1
+  seed: 0
+  max_evaluations: 9000
+  show_loss_curve: true
+  loss_curve_update_interval: 50
+  loss_curve_pause_seconds: 0.01
+solver:
+  backend: cudss_hybrid_direct
+  direct_residual_tol: 0.0001
+  hybrid_num_threads: 1
+  hybrid_execution_mode: auto
+  hybrid_device_memory_limit_gb: 5.6
+  hybrid_device_memory_reserve_gb: 0.75
+  hybrid_register_cuda_memory: false
+  condensed_symmetry_tolerance: 1.0e-12
+  reuse_matrix: true
+algorithm: sac
+algorithm_options:
+  total_timesteps: 8000
+  episode_steps: 32
+  evaluation_steps: 32
+  action_scale: 0.2
+  reward_scale: 100.0
+  learning_rate: 0.0003
+  batch_size: 64
+  learning_starts: 256
+  buffer_size: 50000
+  random_reset: true
+  device: cpu
+  run_mode: train
+  checkpoint: outputs\algs\phase_oblique_reflecting_x_12x12\sac\policy.zip
+same_phase_rad: 0.0

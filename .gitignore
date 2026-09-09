@@ -12,3 +12,10 @@ outputs/baseline_test_deps/
 *_basis.npy
 *_basis.npy.json
 *_visualization.png
+
+# Published algorithm-comparison package and reproducible result artifacts.
+!algorithm_comparison/
+!algorithm_comparison/**/
+!algorithm_comparison/**/*.npz
+!algorithm_comparison/**/*.npy
+algorithm_comparison/**/phase_response_basis.npy

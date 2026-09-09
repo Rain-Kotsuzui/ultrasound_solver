@@ -1,0 +1,11 @@
+{
+  "algorithm": "ppo",
+  "task_fingerprint": "a9df1bb2b2c8cb18dad9d73cc1b23789cbf15931c76c8e477df05b06054eaab7",
+  "environment": {
+    "horizon": 32,
+    "action_scale": 0.2,
+    "reward_scale": 100.0
+  },
+  "seed": 0,
+  "timesteps": 8192
+}
