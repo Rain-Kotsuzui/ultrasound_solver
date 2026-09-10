@@ -3,18 +3,24 @@
 from importlib import import_module, util
 
 ALGORITHMS = (
-    "adjoint", "geometric", "response_alignment", "gabs", "spsa", "sac", "ppo", "cmaes",
+    "adjoint", "geometric", "response_alignment", "gabs", "spsa", "lshade",
+    "sac", "ppo", "cmaes",
 )
 OPTIONS = {
     "adjoint": {
         "optimizer", "learning_rate", "weight_decay", "beta1", "beta2",
         "initial_step", "armijo", "line_search_shrink", "max_line_search",
-        "gradient_check", "gradient_check_step",
+        "gradient_check", "gradient_check_step", "convergence_patience",
+        "convergence_relative_tolerance",
     },
     "geometric": set(),
     "response_alignment": set(),
     "gabs": {"phase_levels"},
     "spsa": {"learning_rate", "perturbation", "alpha", "gamma"},
+    "lshade": {
+        "population_size", "min_population_size", "memory_size", "p_best_rate",
+        "convergence_patience", "convergence_relative_tolerance",
+    },
     "cmaes": {"sigma", "population_size"},
     "sac": {"episode_steps", "evaluation_steps", "action_scale", "reward_scale",
             "total_timesteps", "run_mode", "checkpoint", "random_reset", "device",

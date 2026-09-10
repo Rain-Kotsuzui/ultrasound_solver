@@ -1,6 +1,6 @@
 # 相位优化算法对比
 
-本目录是可上传的算法对比实验包，包含固定超声场景的完整配置、8 种算法的运行产物和可视化曲线。核心实现位于仓库的 `src/baselines/` 与 `src/compare.py`，本目录不复制算法源码，避免产生两份不一致的实现。
+本目录是可上传的算法对比实验包，包含固定超声场景的完整配置、9 种算法的运行产物和可视化曲线。核心实现位于仓库的 `src/baselines/` 与 `src/compare.py`，本目录不复制算法源码，避免产生两份不一致的实现。
 
 ## 场景
 
@@ -9,7 +9,7 @@
 - 目标点：[0.09, 0.09, 0.09] m。
 - 边界：`+x` 为反射边界，其余外边界开放，`-z` 为换能器阵列边界。
 - 优化目标：`focal_contrast`，在目标区域增强振幅，同时压制非目标区域旁瓣。
-- 对比指标：best loss、目标区域平均振幅、背景最大振幅、焦点/旁瓣对比度、场评估次数和优化耗时。
+- 对比指标：best loss、目标区域平均振幅、背景最大振幅、焦点/旁瓣对比度、场评估次数，以及首次达到共同质量门槛的时间。
 
 ## 算法
 
@@ -21,25 +21,47 @@
 | `gabs` | 贪心逐阵元离散相位搜索 | 标量损失 |
 | `spsa` | 随机近似梯度 | 标量损失 |
 | `cmaes` | 进化优化 | 标量损失 |
+| `lshade` | L-SHADE / Differential Evolution | 标量损失 |
 | `sac` | 连续动作强化学习 | 观测和奖励 |
 | `ppo` | 连续动作强化学习 | 观测和奖励 |
 
-`geometric` 和 `response_alignment` 是解析基线，不进行迭代。其余方法从同一几何相位初始化，并受统一的 60 s 墙钟预算和各自的场评估上限约束。
+`geometric` 和 `response_alignment` 是解析基线，不进行迭代。其余方法从同一几何相位初始化。主对比采用统一的 `60 s` 优化墙钟窗口与同一 GPU 响应基；`15000` 场评估仅是保护上限，不是强制用满的预算。已收敛或停滞的方法允许提前停止，避免无效迭代扭曲效率。`adjoint` 在主表中固定为本场景效果最佳的 Adam 更新器；L-BFGS-B 仅保留在梯度更新器消融实验中。
 
 ## 本次结果
 
-| 算法 | Best loss | 对比度 | 场评估次数 | 优化耗时 |
+| 算法 | Best loss | 对比度 | 场评估次数 | 停止时耗时 |
 |---|---:|---:|---:|---:|
-| geometric | 1788.425 | 0.306 | 1 | 1.19 s |
-| response_alignment | -1220.675 | 1.883 | 1 | 0.69 s |
-| adjoint | **-1593.498** | **2.559** | 323 | 85.31 s |
-| gabs | -1141.359 | 2.090 | 2305 | 44.67 s |
-| spsa | 733.987 | 0.747 | 2401 | 125.02 s |
-| cmaes | -1133.107 | 2.060 | 2401 | 65.62 s |
-| sac | 957.413 | 0.600 | 8284 | 278.82 s |
-| ppo | 1000.664 | 0.555 | 8482 | 149.88 s |
+| geometric | 1788.425 | 0.306 | 1 | 30.12 s* |
+| response_alignment | -1220.675 | 1.883 | 1 | 0.06 s |
+| adjoint (Adam) | **-1872.539** | **2.814** | 1701 | **12.54 s** |
+| gabs | -1592.518 | 2.468 | 11521 | 44.80 s |
+| spsa | -158.063 | 1.364 | 14322 | 60.01 s |
+| cmaes | -1779.361 | 2.674 | 12110 | 60.01 s |
+| lshade | -1660.869 | 2.528 | 14142 | 60.00 s |
+| sac | 1149.294 | 0.462 | 725 | 60.19 s |
+| ppo | 981.026 | 0.528 | 8482 | 50.80 s |
 
-在此固定场景中，伴随梯度 + L-BFGS-B 取得最低 loss 和最高焦点/旁瓣对比度。RL 从零开始训练的总成本被完整计入，不应与预训练后单次推理的成本混淆。
+`*` geometric 的时间包含该进程首次 GPU kernel JIT 和响应基设备端初始化，不属于优化工作；因此不用于算法墙钟比较。
+
+“停止时耗时”只描述严格收敛、预算耗尽或训练结束的时刻，不作为不同终点质量的主效率排名。特别是 Adam 在到达高质量解后仍继续少量精修，以验证稳定停滞；L-SHADE 与 CMA-ES 在 60 s 结束时仍未收敛。
+
+RL 从零开始训练的总成本被完整计入，不应与预训练后单次推理的成本混淆。SAC 在训练期耗尽 60 s 后未进行额外策略回放，表中记录训练期间最佳已评估候选，并标记为 `training_time_budget`。
+
+### 墙钟时间解读
+
+本表已使用 GPU 常驻响应基、GPU loss/cotangent/VJP 的当前实现重新运行。CuPy JIT 使用内存缓存以绕过用户级 kernel cache 的文件系统阻塞；首次 kernel 编译不计入后续算法的稳态优化时间。
+
+最终 loss 不是唯一效率指标。下表记录各方法首次达到同一质量门槛的时间与场评估次数；未达到表示在 60 s 窗口内未达到该质量。
+
+| 方法 | 达到 `-1220.675` | 达到 `-1593.498` | 达到 `-1800` | 达到 `-1860` |
+|---|---|---|---|---|
+| adjoint (Adam) | 1.17 s / 53 次 | 1.46 s / 89 次 | **2.00 s / 163 次** | **3.44 s / 350 次** |
+| CMA-ES | 17.51 s / 2734 次 | 29.30 s / 5762 次 | 未达到 | 未达到 |
+| L-SHADE | 18.40 s / 3900 次 | 41.44 s / 9453 次 | 未达到 | 未达到 |
+| GABS | 9.58 s / 2832 次 | 未达到 | 未达到 | 未达到 |
+| SPSA / SAC / PPO | 未达到 | 未达到 | 未达到 | 未达到 |
+
+共同质量门槛在实验前由已有解析基线的 `-1220.675`、`-1593.498`、任务高质量线 `-1800` 与近 Adam 终局质量线 `-1860` 定义；它们不是从某一算法停止时反向挑选。主效率结论应读取这一表：Adam 达到 `-1860` 只需 `3.44 s`，而其 `12.54 s` 是严格停滞确认的辅助信息。场评估次数保留为真实装置闭环时的交互成本指标，但不会被强制拉齐。该表仍是单随机种子结果，后续应报告多随机种子的均值、标准差和 P95。
 
 ## 目录
 
@@ -50,14 +72,13 @@ algorithm_comparison/
   results/
     phase_oblique_reflecting_x_12x12/
       summary.csv / summary.json
+      quality_summary.csv / quality_summary.json
       loss_dashboard.png
       <algorithm>/
         config.yaml
         result.npz
         loss_curve.png
         policy.zip / policy.json       # 仅 SAC、PPO
-      tensorboard/
-        events.out.tfevents.*
   run_comparison.py
 ```
 
@@ -73,10 +94,10 @@ python algorithm_comparison/run_comparison.py
 
 该命令将重新运行所有算法，并覆盖 `algorithm_comparison/results/phase_oblique_reflecting_x_12x12/`。上传包不包含大型相位响应基缓存，首次运行会自动构建，后续运行自动复用本地缓存。需要安装项目基础依赖；SAC、PPO 与 CMA-ES 还需要 `src/baselines/requirements.txt` 中的可选依赖。
 
-查看本次记录的交互式曲线：
+总图 `loss_dashboard.png` 将所有算法叠加到同一坐标轴：每种颜色的透明细线是原始 current loss，实线是自适应滚动中位数，虚线是截至该评估次数的 best-so-far。滚动中位数只平滑局部噪声，不会像全程均值那样把早期搜索阶段混入后期收敛值。
+
+从既有 `result.npz` 重建共同质量统计，无需重跑优化：
 
 ```powershell
-tensorboard --logdir algorithm_comparison/results/phase_oblique_reflecting_x_12x12/tensorboard
+python src/compare.py --config algorithm_comparison/config/phase_oblique_reflecting_x_12x12.yaml --output-dir algorithm_comparison/results --rebuild-quality-summary
 ```
-
-所有图的横轴均为真实场评估次数。蓝线是当前候选的 loss，红线是截至该评估次数的最优 loss。

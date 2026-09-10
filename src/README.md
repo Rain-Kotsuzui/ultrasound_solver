@@ -86,7 +86,7 @@ python src/compare_visualizer.py outputs/algs/phase_oblique_reflecting_x_12x12
 ### 顶层
 
 - `mode`: `phase_optimization` 根据 `algorithm` 优化阵元相位；`same_phase` 使用固定同相位前向求解；`sdf_inverse` 为未来 SDF 反演预留，当前会明确报未实现。
-- `algorithm`: 相位优化算法，可选 `adjoint`、`geometric`、`response_alignment`、`gabs`、`spsa`、`sac`、`ppo`、`cmaes`。
+- `algorithm`: 相位优化算法，可选 `adjoint`、`geometric`、`response_alignment`、`gabs`、`spsa`、`lshade`、`sac`、`ppo`、`cmaes`。
 - `algorithm_options`: 当前 `algorithm` 的专属参数映射；不属于该算法的参数会报错。
 - `same_phase_rad`: `same_phase` 和 `sdf_inverse` 的所有阵元固定相位，单位 `rad`。
 
@@ -159,7 +159,7 @@ algorithm_options:
 - `source_exclusion_layers`: 忽略底部源面附近的网格层数。
 - `sidelobe_temperature`: `focal_contrast` 平滑最大旁瓣的温度参数，单位 `Pa`。
 - `iterations`: 优化迭代次数。
-- `max_evaluations`: 单次任务可用的总声场评估次数上限；GABS、SPSA、RL、CMA-ES 和伴随法都使用此上限。
+- `max_evaluations`: 单次任务可用的总声场评估次数上限；GABS、SPSA、L-SHADE、RL、CMA-ES 和伴随法都使用此上限。
 - `max_seconds`: 单次任务可用的墙钟时间上限，单位 `s`；`0` 表示不限制。`compare.py` 默认将其设为统一的 `60 s`。
 - `seed`: 随机算法与 RL 的随机种子。
 - `show_loss_curve`: 是否在相位优化时显示实时 loss 曲线窗口。
@@ -168,11 +168,12 @@ algorithm_options:
 
 ### `algorithm_options`
 
-- `adjoint`: `optimizer` 为 `adam` 或 `lbfgsb`；`learning_rate` 仅对 Adam 生效；`gradient_check` 和 `gradient_check_step` 控制有限差分验证。
+- `adjoint`: 默认使用 `adam`；`optimizer` 支持 `lbfgsb`、`adam`、`adamw`、`lion`、`nonlinear_cg`。`learning_rate` 控制 Adam 步长，`convergence_patience` 与 `convergence_relative_tolerance` 控制 Adam/AdamW 的提前收敛判断；`gradient_check` 和 `gradient_check_step` 控制有限差分验证。
 - `geometric`、`response_alignment`: 无专属参数。
 - `gabs`: `phase_levels`，单个阵元每轮枚举的离散相位数。
 - `spsa`: `learning_rate`、`perturbation`、`alpha`、`gamma`。
 - `cmaes`: `sigma`、`population_size`；需要可选依赖。
+- `lshade`: 成功历史自适应 Differential Evolution；`population_size` 为初始种群，`min_population_size` 为线性缩减后的下限，`memory_size` 为成功参数记忆长度，`p_best_rate` 为 current-to-pbest 候选比例。`convergence_patience` 与 `convergence_relative_tolerance` 控制连续代际相对改善不足时的收敛判断，默认连续 25 代相对改善不超过 `2e-4` 时停止。只访问标量损失，不使用解析梯度。
 - `sac`、`ppo`: `episode_steps`、`evaluation_steps`、`action_scale`、`reward_scale`、`total_timesteps`、`checkpoint`、`run_mode` 等；需要可选依赖，完整参数见 `src/baselines/requirements.txt` 和 `docs/BASELINE_COMPARISON_PLAN.md`。
 
 ### `boundary_conditions`

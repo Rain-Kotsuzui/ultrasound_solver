@@ -94,13 +94,15 @@ class BaselineTests(unittest.TestCase):
                 np.testing.assert_allclose(value.gradient[index], numerical, rtol=1e-5, atol=1e-4)
 
     def test_algorithms_budget_and_reproducibility(self):
-        for algorithm in ("adjoint", "geometric", "gabs", "spsa"):
+        for algorithm in ("adjoint", "geometric", "gabs", "spsa", "lshade"):
             cfg = config(algorithm)
             cfg.training.max_evaluations = 12
             p1, r1 = run(cfg, ToyBasis(cfg))
             p2, r2 = run(cfg, ToyBasis(cfg))
             self.assertLessEqual(p1.field_evaluations, 12)
             self.assertEqual(p1.field_evaluations, p1.basis.calls)
+            if algorithm == "lshade":
+                self.assertEqual(p1.vjp_evaluations, 0)
             np.testing.assert_allclose(r1.final.phases, r2.final.phases)
             self.assertLessEqual(r1.best.loss, r1.final.loss)
             best = [x["best_loss"] for x in r1.history]
@@ -134,6 +136,19 @@ class BaselineTests(unittest.TestCase):
             self.assertLessEqual(problem.field_evaluations, cfg.training.max_evaluations)
             self.assertTrue(np.isfinite(result.best.loss))
 
+    def test_lshade_convergence_criterion(self):
+        cfg = config("lshade")
+        cfg.training.iterations = 5
+        cfg.training.max_evaluations = 100
+        cfg.algorithm_options = {
+            "convergence_patience": 1,
+            "convergence_relative_tolerance": 1.0e3,
+        }
+        problem, result = run(cfg, ToyBasis(cfg))
+        self.assertEqual(result.termination_reason, "converged")
+        self.assertEqual(problem.vjp_evaluations, 0)
+        self.assertEqual(result.metadata["convergence_patience"], 1)
+
     def test_budget_invalid_inputs(self):
         cfg = config()
         cfg.training.max_evaluations = 1
@@ -150,6 +165,13 @@ class BaselineTests(unittest.TestCase):
         cfg.algorithm = "unknown"
         with self.assertRaises(ValueError):
             validate_algorithm(cfg)
+        cfg.algorithm = "lshade"
+        cfg.algorithm_options = {"p_best_rate": 1.1}
+        with self.assertRaises(ValueError):
+            run(cfg, ToyBasis(cfg))
+        cfg.algorithm_options = {"min_population_size": 33, "population_size": 32}
+        with self.assertRaises(ValueError):
+            run(cfg, ToyBasis(cfg))
 
     def test_live_loss_curve_receives_all_evaluations(self):
         cfg = config("spsa")

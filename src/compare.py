@@ -19,6 +19,14 @@ from main import save_phase_optimization_result
 from solvers.helmholtz_solver import HelmholtzDirectSolver
 
 
+QUALITY_TARGETS = (
+    ("response_alignment", -1220.675),
+    ("lbfgsb_reference", -1593.498),
+    ("high_quality", -1800.0),
+    ("near_adam_quality", -1860.0),
+)
+
+
 PROFILES = {
     "geometric": {
         "algorithm_options": {},
@@ -30,16 +38,23 @@ PROFILES = {
     },
     "adjoint": {
         "algorithm_options": {
-            "optimizer": "lbfgsb",
+            "optimizer": "adam",
+            "learning_rate": 0.05,
             "gradient_check": False,
+            "convergence_patience": 100,
+            "convergence_relative_tolerance": 1.0e-5,
         },
-        "training": {"iterations": 1000, "max_evaluations": 5000, "max_seconds": 60.0},
+        "training": {
+            "iterations": 5000,
+            "max_evaluations": 15000,
+            "max_seconds": 60.0,
+        },
     },
     "gabs": {
         "algorithm_options": {"phase_levels": 8},
         "training": {
-            "iterations": 2,
-            "max_evaluations": 3000,
+            "iterations": 10,
+            "max_evaluations": 15000,
             "max_seconds": 60.0,
             "loss_curve_update_interval": 16,
         },
@@ -52,8 +67,8 @@ PROFILES = {
             "gamma": 0.101,
         },
         "training": {
-            "iterations": 800,
-            "max_evaluations": 3000,
+            "iterations": 5000,
+            "max_evaluations": 15000,
             "max_seconds": 60.0,
             "loss_curve_update_interval": 5,
         },
@@ -61,10 +76,26 @@ PROFILES = {
     "cmaes": {
         "algorithm_options": {"sigma": 0.50, "population_size": 24},
         "training": {
-            "iterations": 100,
-            "max_evaluations": 2500,
+            "iterations": 600,
+            "max_evaluations": 15000,
             "max_seconds": 60.0,
             "loss_curve_update_interval": 12,
+        },
+    },
+    "lshade": {
+        "algorithm_options": {
+            "population_size": 32,
+            "min_population_size": 8,
+            "memory_size": 6,
+            "p_best_rate": 0.15,
+            "convergence_patience": 25,
+            "convergence_relative_tolerance": 2.0e-4,
+        },
+        "training": {
+            "iterations": 2000,
+            "max_evaluations": 15000,
+            "max_seconds": 60.0,
+            "loss_curve_update_interval": 24,
         },
     },
     "sac": {
@@ -84,7 +115,7 @@ PROFILES = {
         },
         "training": {
             "iterations": 1,
-            "max_evaluations": 9000,
+            "max_evaluations": 15000,
             "max_seconds": 60.0,
             "loss_curve_update_interval": 50,
         },
@@ -105,7 +136,7 @@ PROFILES = {
         },
         "training": {
             "iterations": 1,
-            "max_evaluations": 9000,
+            "max_evaluations": 15000,
             "max_seconds": 60.0,
             "loss_curve_update_interval": 50,
         },
@@ -172,6 +203,84 @@ def _write_summary(output_dir, base_cfg, rows, basis_seconds, selected_algorithm
         writer = csv.DictWriter(stream, fieldnames=keys)
         writer.writeheader()
         writer.writerows(rows)
+
+
+def _quality_rows(histories):
+    rows = []
+    for algorithm, history in histories.items():
+        for name, threshold in QUALITY_TARGETS:
+            reached = next(
+                (
+                    row
+                    for row in history
+                    if row["best_loss"] <= threshold
+                ),
+                None,
+            )
+            rows.append(
+                {
+                    "algorithm": algorithm,
+                    "quality_target": name,
+                    "loss_threshold": threshold,
+                    "reached": reached is not None,
+                    "field_evaluations_to_target": (
+                        reached["evaluation"] if reached is not None else None
+                    ),
+                    "seconds_to_target": (
+                        reached["elapsed_seconds"] if reached is not None else None
+                    ),
+                }
+            )
+    return rows
+
+
+def _write_quality_summary(output_dir, histories):
+    rows = _quality_rows(histories)
+    payload = {
+        "quality_targets": [
+            {"name": name, "loss_threshold": threshold}
+            for name, threshold in QUALITY_TARGETS
+        ],
+        "rows": rows,
+    }
+    (output_dir / "quality_summary.json").write_text(
+        json.dumps(payload, indent=2, allow_nan=False), encoding="utf-8"
+    )
+    with (output_dir / "quality_summary.csv").open(
+        "w", newline="", encoding="utf-8"
+    ) as stream:
+        writer = csv.DictWriter(
+            stream,
+            fieldnames=(
+                "algorithm",
+                "quality_target",
+                "loss_threshold",
+                "reached",
+                "field_evaluations_to_target",
+                "seconds_to_target",
+            ),
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def rebuild_quality_summary(output_dir):
+    histories = {}
+    for path in Path(output_dir).glob("*/result.npz"):
+        with np.load(path) as result:
+            histories[path.parent.name] = [
+                {
+                    "evaluation": int(evaluation),
+                    "elapsed_seconds": float(elapsed_seconds),
+                    "best_loss": float(best_loss),
+                }
+                for evaluation, elapsed_seconds, best_loss in zip(
+                    result["evaluation_history"],
+                    result["elapsed_seconds_history"],
+                    result["best_loss_history"],
+                )
+            ]
+    _write_quality_summary(Path(output_dir), histories)
 
 
 def compare(config_path, output_root="outputs/algs", algorithms=None,
@@ -246,6 +355,7 @@ def compare(config_path, output_root="outputs/algs", algorithms=None,
             _write_summary(output_dir, config_path, rows, basis_seconds, selected)
     finally:
         save_loss_dashboard(histories, output_dir / "loss_dashboard.png")
+        _write_quality_summary(output_dir, histories)
         dashboard.close()
         if basis is not None:
             basis.close()
@@ -286,7 +396,17 @@ def main():
         default=None,
         help="Shared per-algorithm wall-clock budget in seconds; defaults to 60.",
     )
+    parser.add_argument(
+        "--rebuild-quality-summary",
+        action="store_true",
+        help="Regenerate quality summary CSV/JSON from existing result files.",
+    )
     args = parser.parse_args()
+    if args.rebuild_quality_summary:
+        output_dir = Path(args.output_dir) / Path(args.config).stem
+        rebuild_quality_summary(output_dir)
+        print(f"[Compare] rebuilt quality summary: {output_dir}")
+        return
     selected = [name.strip() for name in args.algorithms.split(",") if name.strip()]
     rows = compare(
         args.config, args.output_dir, selected,

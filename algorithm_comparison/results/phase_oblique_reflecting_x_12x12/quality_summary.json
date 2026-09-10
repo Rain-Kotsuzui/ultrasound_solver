@@ -1,0 +1,310 @@
+{
+  "quality_targets": [
+    {
+      "name": "response_alignment",
+      "loss_threshold": -1220.675
+    },
+    {
+      "name": "lbfgsb_reference",
+      "loss_threshold": -1593.498
+    },
+    {
+      "name": "high_quality",
+      "loss_threshold": -1800.0
+    },
+    {
+      "name": "near_adam_quality",
+      "loss_threshold": -1860.0
+    }
+  ],
+  "rows": [
+    {
+      "algorithm": "adjoint",
+      "quality_target": "response_alignment",
+      "loss_threshold": -1220.675,
+      "reached": true,
+      "field_evaluations_to_target": 53,
+      "seconds_to_target": 1.168258300051093
+    },
+    {
+      "algorithm": "adjoint",
+      "quality_target": "lbfgsb_reference",
+      "loss_threshold": -1593.498,
+      "reached": true,
+      "field_evaluations_to_target": 89,
+      "seconds_to_target": 1.457782400015276
+    },
+    {
+      "algorithm": "adjoint",
+      "quality_target": "high_quality",
+      "loss_threshold": -1800.0,
+      "reached": true,
+      "field_evaluations_to_target": 163,
+      "seconds_to_target": 2.0038129000458866
+    },
+    {
+      "algorithm": "adjoint",
+      "quality_target": "near_adam_quality",
+      "loss_threshold": -1860.0,
+      "reached": true,
+      "field_evaluations_to_target": 350,
+      "seconds_to_target": 3.4352682000026107
+    },
+    {
+      "algorithm": "cmaes",
+      "quality_target": "response_alignment",
+      "loss_threshold": -1220.675,
+      "reached": true,
+      "field_evaluations_to_target": 2734,
+      "seconds_to_target": 17.51493250002386
+    },
+    {
+      "algorithm": "cmaes",
+      "quality_target": "lbfgsb_reference",
+      "loss_threshold": -1593.498,
+      "reached": true,
+      "field_evaluations_to_target": 5762,
+      "seconds_to_target": 29.296771900029853
+    },
+    {
+      "algorithm": "cmaes",
+      "quality_target": "high_quality",
+      "loss_threshold": -1800.0,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "cmaes",
+      "quality_target": "near_adam_quality",
+      "loss_threshold": -1860.0,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "gabs",
+      "quality_target": "response_alignment",
+      "loss_threshold": -1220.675,
+      "reached": true,
+      "field_evaluations_to_target": 2832,
+      "seconds_to_target": 9.582951199961826
+    },
+    {
+      "algorithm": "gabs",
+      "quality_target": "lbfgsb_reference",
+      "loss_threshold": -1593.498,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "gabs",
+      "quality_target": "high_quality",
+      "loss_threshold": -1800.0,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "gabs",
+      "quality_target": "near_adam_quality",
+      "loss_threshold": -1860.0,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "geometric",
+      "quality_target": "response_alignment",
+      "loss_threshold": -1220.675,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "geometric",
+      "quality_target": "lbfgsb_reference",
+      "loss_threshold": -1593.498,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "geometric",
+      "quality_target": "high_quality",
+      "loss_threshold": -1800.0,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "geometric",
+      "quality_target": "near_adam_quality",
+      "loss_threshold": -1860.0,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "lshade",
+      "quality_target": "response_alignment",
+      "loss_threshold": -1220.675,
+      "reached": true,
+      "field_evaluations_to_target": 3900,
+      "seconds_to_target": 18.404602899972815
+    },
+    {
+      "algorithm": "lshade",
+      "quality_target": "lbfgsb_reference",
+      "loss_threshold": -1593.498,
+      "reached": true,
+      "field_evaluations_to_target": 9453,
+      "seconds_to_target": 41.44433039997239
+    },
+    {
+      "algorithm": "lshade",
+      "quality_target": "high_quality",
+      "loss_threshold": -1800.0,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "lshade",
+      "quality_target": "near_adam_quality",
+      "loss_threshold": -1860.0,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "ppo",
+      "quality_target": "response_alignment",
+      "loss_threshold": -1220.675,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "ppo",
+      "quality_target": "lbfgsb_reference",
+      "loss_threshold": -1593.498,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "ppo",
+      "quality_target": "high_quality",
+      "loss_threshold": -1800.0,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "ppo",
+      "quality_target": "near_adam_quality",
+      "loss_threshold": -1860.0,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "response_alignment",
+      "quality_target": "response_alignment",
+      "loss_threshold": -1220.675,
+      "reached": true,
+      "field_evaluations_to_target": 1,
+      "seconds_to_target": 0.03623559995321557
+    },
+    {
+      "algorithm": "response_alignment",
+      "quality_target": "lbfgsb_reference",
+      "loss_threshold": -1593.498,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "response_alignment",
+      "quality_target": "high_quality",
+      "loss_threshold": -1800.0,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "response_alignment",
+      "quality_target": "near_adam_quality",
+      "loss_threshold": -1860.0,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "sac",
+      "quality_target": "response_alignment",
+      "loss_threshold": -1220.675,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "sac",
+      "quality_target": "lbfgsb_reference",
+      "loss_threshold": -1593.498,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "sac",
+      "quality_target": "high_quality",
+      "loss_threshold": -1800.0,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "sac",
+      "quality_target": "near_adam_quality",
+      "loss_threshold": -1860.0,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "spsa",
+      "quality_target": "response_alignment",
+      "loss_threshold": -1220.675,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "spsa",
+      "quality_target": "lbfgsb_reference",
+      "loss_threshold": -1593.498,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "spsa",
+      "quality_target": "high_quality",
+      "loss_threshold": -1800.0,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "algorithm": "spsa",
+      "quality_target": "near_adam_quality",
+      "loss_threshold": -1860.0,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    }
+  ]
+}

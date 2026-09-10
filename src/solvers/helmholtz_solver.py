@@ -1,5 +1,7 @@
 import time
+import os
 
+os.environ.setdefault("CUPY_CACHE_IN_MEMORY", "1")
 import cupy as cp
 import cupyx.scipy.sparse as csp
 import numpy as np

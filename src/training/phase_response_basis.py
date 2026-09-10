@@ -1,8 +1,10 @@
 import hashlib
 import json
+import os
 from dataclasses import asdict
 from pathlib import Path
 
+os.environ.setdefault("CUPY_CACHE_IN_MEMORY", "1")
 import cupy as cp
 import numpy as np
 
@@ -367,10 +369,10 @@ class PhaseResponseBasis:
                 self.solver.total_dofs,
             )
             result += (
-                self.basis[start:stop, :].conjugate().transpose()
-                @ vector[start:stop]
+                vector[start:stop].conjugate()
+                @ self.basis[start:stop, :]
             )
-        return result
+        return result.conjugate()
 
     def _require_complete(self):
         if self.basis is None or not self.is_complete:

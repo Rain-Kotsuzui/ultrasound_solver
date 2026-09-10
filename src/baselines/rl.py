@@ -182,17 +182,31 @@ def solve_rl(problem, options, method):
         train_seconds = time.perf_counter() - start
         test_env = PhaseEnv(problem, horizon, action_scale, reward_scale, stage="rl_evaluate")
         try:
-            observation, _ = test_env.reset(seed=seed)
-            for _ in range(eval_steps):
-                action, _ = model.predict(observation, deterministic=True)
-                observation, _, done, _, _ = test_env.step(action)
-                if done:
-                    break
+            try:
+                observation, _ = test_env.reset(seed=seed)
+                for _ in range(eval_steps):
+                    action, _ = model.predict(observation, deterministic=True)
+                    observation, _, done, _, _ = test_env.step(action)
+                    if done:
+                        break
+            except TimeBudgetExhausted:
+                reason = "training_time_budget"
+                return problem.result(
+                    problem.best,
+                    reason,
+                    run_mode=run_mode,
+                    checkpoint=str(checkpoint),
+                    train_field_evaluations=trained_evaluations,
+                    train_or_load_seconds=train_seconds,
+                    timesteps=int(model.num_timesteps),
+                    policy_evaluation_completed=False,
+                )
             return problem.result(
                 test_env.current, reason if run_mode == "train" else "policy_evaluated",
                 run_mode=run_mode, checkpoint=str(checkpoint),
                 train_field_evaluations=trained_evaluations,
                 train_or_load_seconds=train_seconds, timesteps=int(model.num_timesteps),
+                policy_evaluation_completed=True,
             )
         finally:
             test_env.close()

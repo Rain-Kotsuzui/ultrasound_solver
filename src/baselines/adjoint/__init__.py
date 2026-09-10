@@ -5,6 +5,29 @@ import numpy as np
 from baselines.common import BudgetExhausted, TimeBudgetExhausted, positive_float
 
 
+def _convergence_options(options):
+    patience = int(options.get("convergence_patience", 100))
+    tolerance = float(options.get("convergence_relative_tolerance", 1.0e-5))
+    if patience < 1:
+        raise ValueError("convergence_patience must be positive")
+    if not np.isfinite(tolerance) or tolerance <= 0:
+        raise ValueError(
+            "convergence_relative_tolerance must be finite and positive"
+        )
+    return patience, tolerance
+
+
+def _stagnated(problem, checkpoint_loss, step, patience, tolerance):
+    if step % patience:
+        return False, checkpoint_loss, None
+    relative_improvement = (
+        checkpoint_loss - problem.best.loss
+    ) / max(1.0, abs(checkpoint_loss))
+    if relative_improvement <= tolerance:
+        return True, checkpoint_loss, relative_improvement
+    return False, problem.best.loss, relative_improvement
+
+
 def solve(problem, options):
     method = options.get("optimizer", "adam")
     if method not in {"lbfgsb", "adam", "adamw", "lion", "nonlinear_cg"}:
@@ -35,10 +58,12 @@ def solve(problem, options):
             rate = positive_float(options.get("learning_rate", 0.05),
                                   "learning_rate")
             decay = float(options.get("weight_decay", 0.0))
+            patience, tolerance = _convergence_options(options)
             if not np.isfinite(decay) or decay < 0:
                 raise ValueError("weight_decay must be finite and nonnegative")
             first = np.zeros(problem.size)
             second = np.zeros(problem.size)
+            checkpoint_loss = problem.best.loss
             for step in range(1, problem.iterations + 1):
                 first = 0.9 * first + 0.1 * current.gradient
                 second = 0.999 * second + 0.001 * current.gradient**2
@@ -50,6 +75,17 @@ def solve(problem, options):
                 if method == "adamw" and decay:
                     phases *= 1.0 - rate * decay
                 current = problem.evaluate(phases, gradient=True)
+                stopped, checkpoint_loss, improvement = _stagnated(
+                    problem, checkpoint_loss, step, patience, tolerance
+                )
+                if stopped:
+                    return problem.result(
+                        problem.best,
+                        "converged",
+                        convergence_patience=patience,
+                        convergence_relative_tolerance=tolerance,
+                        convergence_relative_improvement=improvement,
+                    )
             return problem.result(
                 current, "iteration_limit", gradient_checks=checks
             )
@@ -62,12 +98,25 @@ def solve(problem, options):
             if not (0 <= beta1 < 1 and 0 <= beta2 < 1):
                 raise ValueError("Lion beta1 and beta2 must be in [0, 1)")
             momentum = np.zeros(problem.size)
-            for _ in range(problem.iterations):
+            patience, tolerance = _convergence_options(options)
+            checkpoint_loss = problem.best.loss
+            for step in range(1, problem.iterations + 1):
                 direction = beta1 * momentum + (1.0 - beta1) * current.gradient
                 momentum = beta2 * momentum + (1.0 - beta2) * current.gradient
                 current = problem.evaluate(
                     current.phases - rate * np.sign(direction), gradient=True
                 )
+                stopped, checkpoint_loss, improvement = _stagnated(
+                    problem, checkpoint_loss, step, patience, tolerance
+                )
+                if stopped:
+                    return problem.result(
+                        problem.best,
+                        "converged",
+                        convergence_patience=patience,
+                        convergence_relative_tolerance=tolerance,
+                        convergence_relative_improvement=improvement,
+                    )
             return problem.result(
                 current, "iteration_limit", gradient_checks=checks
             )
@@ -82,7 +131,9 @@ def solve(problem, options):
             if not 0 < armijo < 1 or not 0 < shrink < 1 or max_line_search < 1:
                 raise ValueError("Invalid nonlinear_cg line-search options")
             direction = -current.gradient
-            for _ in range(problem.iterations):
+            patience, tolerance = _convergence_options(options)
+            checkpoint_loss = problem.best.loss
+            for step_index in range(1, problem.iterations + 1):
                 if np.dot(current.gradient, direction) >= 0:
                     direction = -current.gradient
                 scale = max(float(np.max(np.abs(direction))), 1.0)
@@ -117,6 +168,21 @@ def solve(problem, options):
                     ) / max(denominator, 1e-30),
                 )
                 direction = -current.gradient + beta * direction
+                stopped, checkpoint_loss, improvement = _stagnated(
+                    problem,
+                    checkpoint_loss,
+                    step_index,
+                    patience,
+                    tolerance,
+                )
+                if stopped:
+                    return problem.result(
+                        problem.best,
+                        "converged",
+                        convergence_patience=patience,
+                        convergence_relative_tolerance=tolerance,
+                        convergence_relative_improvement=improvement,
+                    )
             return problem.result(
                 current, "iteration_limit", gradient_checks=checks
             )

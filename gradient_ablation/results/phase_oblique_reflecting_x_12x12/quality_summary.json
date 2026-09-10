@@ -1,0 +1,138 @@
+{
+  "quality_targets": [
+    {
+      "name": "lbfgsb_quality",
+      "loss_threshold": -1593.498
+    },
+    {
+      "name": "strong_quality",
+      "loss_threshold": -1800.0
+    },
+    {
+      "name": "adam_quality",
+      "loss_threshold": -1860.0
+    }
+  ],
+  "rows": [
+    {
+      "optimizer": "adam",
+      "quality_target": "lbfgsb_quality",
+      "loss_threshold": -1593.498,
+      "reached": true,
+      "field_evaluations_to_target": 89,
+      "seconds_to_target": 0.706232899974566
+    },
+    {
+      "optimizer": "adam",
+      "quality_target": "strong_quality",
+      "loss_threshold": -1800.0,
+      "reached": true,
+      "field_evaluations_to_target": 163,
+      "seconds_to_target": 1.2559887999668717
+    },
+    {
+      "optimizer": "adam",
+      "quality_target": "adam_quality",
+      "loss_threshold": -1860.0,
+      "reached": true,
+      "field_evaluations_to_target": 350,
+      "seconds_to_target": 2.693362199992407
+    },
+    {
+      "optimizer": "adamw",
+      "quality_target": "lbfgsb_quality",
+      "loss_threshold": -1593.498,
+      "reached": true,
+      "field_evaluations_to_target": 89,
+      "seconds_to_target": 0.7122242000186816
+    },
+    {
+      "optimizer": "adamw",
+      "quality_target": "strong_quality",
+      "loss_threshold": -1800.0,
+      "reached": true,
+      "field_evaluations_to_target": 163,
+      "seconds_to_target": 1.3201612000120804
+    },
+    {
+      "optimizer": "adamw",
+      "quality_target": "adam_quality",
+      "loss_threshold": -1860.0,
+      "reached": true,
+      "field_evaluations_to_target": 350,
+      "seconds_to_target": 2.9341961999889463
+    },
+    {
+      "optimizer": "lbfgsb",
+      "quality_target": "lbfgsb_quality",
+      "loss_threshold": -1593.498,
+      "reached": true,
+      "field_evaluations_to_target": 289,
+      "seconds_to_target": 23.919015599996783
+    },
+    {
+      "optimizer": "lbfgsb",
+      "quality_target": "strong_quality",
+      "loss_threshold": -1800.0,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "optimizer": "lbfgsb",
+      "quality_target": "adam_quality",
+      "loss_threshold": -1860.0,
+      "reached": false,
+      "field_evaluations_to_target": null,
+      "seconds_to_target": null
+    },
+    {
+      "optimizer": "lion",
+      "quality_target": "lbfgsb_quality",
+      "loss_threshold": -1593.498,
+      "reached": true,
+      "field_evaluations_to_target": 165,
+      "seconds_to_target": 1.1712204000214115
+    },
+    {
+      "optimizer": "lion",
+      "quality_target": "strong_quality",
+      "loss_threshold": -1800.0,
+      "reached": true,
+      "field_evaluations_to_target": 252,
+      "seconds_to_target": 1.8013241000007838
+    },
+    {
+      "optimizer": "lion",
+      "quality_target": "adam_quality",
+      "loss_threshold": -1860.0,
+      "reached": true,
+      "field_evaluations_to_target": 457,
+      "seconds_to_target": 3.346574400027748
+    },
+    {
+      "optimizer": "nonlinear_cg",
+      "quality_target": "lbfgsb_quality",
+      "loss_threshold": -1593.498,
+      "reached": true,
+      "field_evaluations_to_target": 148,
+      "seconds_to_target": 1.0964007999864407
+    },
+    {
+      "optimizer": "nonlinear_cg",
+      "quality_target": "strong_quality",
+      "loss_threshold": -1800.0,
+      "reached": true,
+      "field_evaluations_to_target": 841,
+      "seconds_to_target": 6.079671899962705
+    },
+    {
+      "optimizer": "nonlinear_cg",
+      "quality_target": "adam_quality",
+      "loss_threshold": -1860.0,
+      "reached": true,
+      "field_evaluations_to_target": 2957,
+      "seconds_to_target": 21.142672599991783
+    }
+  ]
+}

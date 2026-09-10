@@ -37,7 +37,7 @@ training:
   phase_basis_file: "gradient_ablation/results/phase_oblique_reflecting_x_12x12/phase_response_basis.npy"
   phase_basis_batch_size: 12
   voxel_chunk_size: 131072
-  load_basis_to_gpu: false
+  load_basis_to_gpu: true
   release_factor_after_basis: true
   target_field_file: ""
   target_peak_pressure: 600.0

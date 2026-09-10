@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 import time
 
+import cupy as cp
 import numpy as np
 
 from training.phase_adjoint_optimizer import (
@@ -101,7 +102,6 @@ class PhaseProblem:
         self.history = []
         self.best = None
         self.last = None
-        self.started = time.perf_counter()
         if loss_curve is None:
             from baselines.loss_curve import LiveLossCurve
 
@@ -112,6 +112,21 @@ class PhaseProblem:
                 cfg.algorithm,
             )
         self.loss_curve = loss_curve
+        if (
+            getattr(self.basis, "basis_gpu", None) is not None
+            and cfg.algorithm == "adjoint"
+        ):
+            self._warm_gpu_pipeline()
+        self.started = time.perf_counter()
+
+    def _warm_gpu_pipeline(self):
+        field = self.basis.field(self.initial_phases, return_numpy=False)
+        loss, cotangent = self.loss_model.evaluate_device(field)
+        self.basis.phase_vjp(cotangent, self.initial_phases, return_numpy=False)
+        self.metrics_device(field)
+        if not bool(cp.isfinite(loss)):
+            raise FloatingPointError("Non-finite GPU warm-up loss")
+        cp.cuda.Stream.null.synchronize()
 
     def _initial_phases(self):
         mode = self.cfg.training.initial_phase
@@ -162,6 +177,61 @@ class PhaseProblem:
             "field_absolute_l2": error,
         }
 
+    def metrics_device(self, field):
+        amplitude = cp.abs(field)
+        if self.target_indices:
+            indices = tuple(np.asarray(self.target_indices, dtype=np.intp).T)
+            values = amplitude[indices]
+        else:
+            target_mask = self._device_target_mask()
+            values = amplitude[target_mask]
+        background_mask = self._device_background_mask()
+        target = self._device_target()
+        mean = cp.mean(values)
+        peak = cp.max(values)
+        background = cp.max(amplitude[background_mask])
+        error = cp.linalg.norm(amplitude - target)
+        target_min = cp.min(values)
+        target_std = cp.std(values)
+        summary = cp.asnumpy(
+            cp.asarray(
+                [
+                    mean, target_min, background, peak, target_std, error,
+                ]
+            )
+        )
+        mean, target_min, background, peak, target_std, error = (
+            float(value) for value in summary
+        )
+        norm = float(np.linalg.norm(self.target.target))
+        return {
+            "target_mean": mean,
+            "target_min": target_min,
+            "background_max": background,
+            "contrast": mean / background if background > 0 else None,
+            "uniformity": target_min / peak if peak > 0 else None,
+            "target_cv": target_std / mean if mean > 0 else None,
+            "field_relative_l2": error / norm if norm > 0 else None,
+            "field_absolute_l2": error,
+        }
+
+    def _device_target(self):
+        if not hasattr(self, "_gpu_target"):
+            self._gpu_target = cp.asarray(self.target.target)
+        return self._gpu_target
+
+    def _device_target_mask(self):
+        if not hasattr(self, "_gpu_target_mask"):
+            self._gpu_target_mask = cp.asarray(
+                self.target.weight >= np.max(self.target.weight) * 0.5
+            )
+        return self._gpu_target_mask
+
+    def _device_background_mask(self):
+        if not hasattr(self, "_gpu_background_mask"):
+            self._gpu_background_mask = cp.asarray(self.background_mask)
+        return self._gpu_background_mask
+
     def evaluate(self, phases, gradient=False, stage="optimization"):
         # Every method must produce one valid initial candidate for reporting.
         if self.field_evaluations > 0 and self.time_remaining_seconds <= 0:
@@ -172,18 +242,41 @@ class PhaseProblem:
         if phases.shape != (self.size,):
             raise ValueError(f"Expected {self.size} phases")
         self.field_evaluations += 1
-        # return_numpy=True synchronizes GPU field work before timing/logging.
-        field_value = self.basis.field(phases, return_numpy=True)
-        loss, cotangent = self.loss_model.evaluate(field_value, with_cotangent=gradient)
-        if not np.isfinite(loss) or not np.isfinite(field_value).all():
+        use_gpu = getattr(self.basis, "basis_gpu", None) is not None
+        field_value = self.basis.field(phases, return_numpy=not use_gpu)
+        if use_gpu:
+            loss_value, cotangent = self.loss_model.evaluate_device(
+                field_value,
+                with_cotangent=gradient,
+            )
+            loss = float(loss_value)
+        else:
+            loss, cotangent = self.loss_model.evaluate(
+                field_value,
+                with_cotangent=gradient,
+            )
+        if not np.isfinite(loss) or (
+            use_gpu and not bool(cp.isfinite(field_value).all())
+        ):
             raise FloatingPointError("Non-finite field or loss")
         grad = None
         if gradient:
             self.vjp_evaluations += 1
-            grad = self.basis.phase_vjp(cotangent, phases, return_numpy=True)
+            grad = self.basis.phase_vjp(
+                cotangent,
+                phases,
+                return_numpy=True,
+            )
             if not np.isfinite(grad).all():
                 raise FloatingPointError("Non-finite phase gradient")
-        evaluation = Evaluation(phases.copy(), loss, field_value, self.metrics(field_value), grad)
+        metrics = self.metrics_device(field_value) if use_gpu else self.metrics(field_value)
+        evaluation = Evaluation(
+            phases.copy(),
+            loss,
+            None if use_gpu else field_value,
+            metrics,
+            grad,
+        )
         self.last = evaluation
         if self.best is None or loss < self.best.loss:
             self.best = evaluation
@@ -219,6 +312,10 @@ class PhaseProblem:
     def result(self, final, reason, **metadata):
         if final is None or self.best is None:
             raise RuntimeError("Algorithm returned no evaluated candidate")
+        if final.field is None:
+            final.field = self.basis.field(final.phases, return_numpy=True)
+        if self.best.field is None:
+            self.best.field = self.basis.field(self.best.phases, return_numpy=True)
         self.loss_curve.finalize(reason)
         return AlgorithmResult(
             final, self.best, list(self.history), reason,

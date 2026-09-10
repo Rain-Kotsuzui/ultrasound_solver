@@ -11,6 +11,7 @@ import sys
 import time
 import traceback
 
+import numpy as np
 import yaml
 
 
@@ -28,30 +29,36 @@ from solvers.helmholtz_solver import HelmholtzDirectSolver
 OPTIMIZERS = {
     "lbfgsb": {
         "optimizer": "lbfgsb",
-        "iterations": 1000,
-        "max_evaluations": 5000,
+        "iterations": 5000,
+        "max_evaluations": 15000,
     },
     "adam": {
         "optimizer": "adam",
         "learning_rate": 0.05,
-        "iterations": 800,
-        "max_evaluations": 1000,
+        "convergence_patience": 100,
+        "convergence_relative_tolerance": 1.0e-5,
+        "iterations": 5000,
+        "max_evaluations": 15000,
     },
     "adamw": {
         "optimizer": "adamw",
         "learning_rate": 0.05,
         # Phase is periodic; nonzero Euclidean weight decay is not physical.
         "weight_decay": 0.0,
-        "iterations": 800,
-        "max_evaluations": 1000,
+        "convergence_patience": 100,
+        "convergence_relative_tolerance": 1.0e-5,
+        "iterations": 5000,
+        "max_evaluations": 15000,
     },
     "lion": {
         "optimizer": "lion",
         "learning_rate": 0.02,
         "beta1": 0.9,
         "beta2": 0.99,
-        "iterations": 800,
-        "max_evaluations": 1000,
+        "convergence_patience": 100,
+        "convergence_relative_tolerance": 1.0e-5,
+        "iterations": 5000,
+        "max_evaluations": 15000,
     },
     "nonlinear_cg": {
         "optimizer": "nonlinear_cg",
@@ -59,10 +66,18 @@ OPTIMIZERS = {
         "armijo": 1.0e-4,
         "line_search_shrink": 0.5,
         "max_line_search": 12,
-        "iterations": 400,
-        "max_evaluations": 5000,
+        "convergence_patience": 100,
+        "convergence_relative_tolerance": 1.0e-5,
+        "iterations": 5000,
+        "max_evaluations": 15000,
     },
 }
+
+QUALITY_TARGETS = (
+    ("lbfgsb_quality", -1593.498),
+    ("strong_quality", -1800.0),
+    ("adam_quality", -1860.0),
+)
 
 
 def _portable_path(path):
@@ -132,6 +147,79 @@ def _write_summary(output_dir, config_path, basis_seconds, rows):
         writer.writerows(rows)
 
 
+def _write_quality_summary(output_dir, histories):
+    rows = []
+    for optimizer, history in histories.items():
+        for target_name, threshold in QUALITY_TARGETS:
+            reached = next(
+                (
+                    row
+                    for row in history
+                    if row["best_loss"] <= threshold
+                ),
+                None,
+            )
+            rows.append(
+                {
+                    "optimizer": optimizer,
+                    "quality_target": target_name,
+                    "loss_threshold": threshold,
+                    "reached": reached is not None,
+                    "field_evaluations_to_target": (
+                        reached["evaluation"] if reached is not None else None
+                    ),
+                    "seconds_to_target": (
+                        reached["elapsed_seconds"] if reached is not None else None
+                    ),
+                }
+            )
+    payload = {
+        "quality_targets": [
+            {"name": name, "loss_threshold": threshold}
+            for name, threshold in QUALITY_TARGETS
+        ],
+        "rows": rows,
+    }
+    (output_dir / "quality_summary.json").write_text(
+        json.dumps(payload, indent=2, allow_nan=False), encoding="utf-8"
+    )
+    with (output_dir / "quality_summary.csv").open(
+        "w", newline="", encoding="utf-8"
+    ) as stream:
+        writer = csv.DictWriter(
+            stream,
+            fieldnames=(
+                "optimizer",
+                "quality_target",
+                "loss_threshold",
+                "reached",
+                "field_evaluations_to_target",
+                "seconds_to_target",
+            ),
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def rebuild_quality_summary(output_dir):
+    histories = {}
+    for path in Path(output_dir).glob("*/result.npz"):
+        with np.load(path) as result:
+            histories[path.parent.name] = [
+                {
+                    "evaluation": int(evaluation),
+                    "elapsed_seconds": float(elapsed_seconds),
+                    "best_loss": float(best_loss),
+                }
+                for evaluation, elapsed_seconds, best_loss in zip(
+                    result["evaluation_history"],
+                    result["elapsed_seconds_history"],
+                    result["best_loss_history"],
+                )
+            ]
+    _write_quality_summary(Path(output_dir), histories)
+
+
 def run_ablation(config_path, output_root, optimizers, show_loss_curve, max_seconds):
     base_cfg = SimulationConfig.from_yaml(config_path)
     if base_cfg.mode != "phase_optimization":
@@ -154,6 +242,8 @@ def run_ablation(config_path, output_root, optimizers, show_loss_curve, max_seco
     started = time.perf_counter()
     try:
         basis = solver.build_phase_response_basis()
+        if base_cfg.training.load_basis_to_gpu:
+            basis.to_gpu()
         basis_seconds = time.perf_counter() - started
         for name in optimizers:
             cfg = _config(
@@ -200,6 +290,7 @@ def run_ablation(config_path, output_root, optimizers, show_loss_curve, max_seco
             _write_summary(output_dir, config_path, basis_seconds, rows)
     finally:
         save_loss_dashboard(histories, output_dir / "loss_dashboard.png")
+        _write_quality_summary(output_dir, histories)
         dashboard.close()
         if basis is not None:
             basis.close()
@@ -225,12 +316,22 @@ def main():
     parser.add_argument("--optimizers", default=",".join(OPTIMIZERS))
     parser.add_argument("--no-loss-window", action="store_true")
     parser.add_argument(
+        "--rebuild-quality-summary",
+        action="store_true",
+        help="Regenerate quality summary CSV/JSON from existing result files.",
+    )
+    parser.add_argument(
         "--max-seconds",
         type=float,
-        default=120.0,
+        default=60.0,
         help="Per-optimizer wall-clock budget; 0 disables the time limit.",
     )
     args = parser.parse_args()
+    if args.rebuild_quality_summary:
+        output_dir = Path(args.output_dir) / Path(args.config).stem
+        rebuild_quality_summary(output_dir)
+        print(f"[GradientAblation] rebuilt quality summary: {output_dir}")
+        return
     optimizers = [item.strip() for item in args.optimizers.split(",") if item.strip()]
     rows = run_ablation(
         args.config,

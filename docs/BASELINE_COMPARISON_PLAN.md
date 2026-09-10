@@ -33,10 +33,11 @@ u(phi) = G exp(i phi)
 | `gabs` | 贪心逐阵元相位搜索 | 候选相位的标量损失 | 首批，新增 |
 | `spsa` | 同时扰动随机近似 | 正负扰动处的标量损失 | 首批，新增 |
 | `sac` | Soft Actor-Critic | 环境观测、动作与奖励 | 首批，传统搜索稳定后新增 |
-| `ours_lbfgsb` | 响应基解析 VJP + L-BFGS-B | 已知模型 G、解析梯度 | 主比较方法，适配现有实现 |
+| `ours_adam` | 响应基解析 VJP + Adam | 已知模型 G、解析梯度 | 主比较方法；L-BFGS-B 留作解析梯度更新器消融 |
 | `ours_adam` | 响应基解析 VJP + Adam | 已知模型 G、解析梯度 | 优化器消融，适配现有实现 |
 | `ppo` | Proximal Policy Optimization | 与 SAC 相同的观测和奖励 | 第二批，新增 |
-| `cmaes` | CMA-ES 进化优化 | 种群候选的标量损失 | 第二批，可选扩展 |
+| `cmaes` | CMA-ES 进化优化 | 种群候选的标量损失 | 已实现，可选依赖 |
+| `lshade` | L-SHADE / Differential Evolution | 种群候选的标量损失 | 已实现，NumPy 无梯度强基线 |
 
 标准高斯过程贝叶斯优化暂不列为首批：当前 12×12 阵列有 144 个连续相位变量，直接在此维度上使用常规 GP-BO 不合适。若以后引入低维相位基或局部 BO，需要单独说明参数化和搜索预算。
 
@@ -98,9 +99,11 @@ phi_next = wrap(phi - a_k*g_hat)
 - 固定场景实验记录从零训练的全部成本；预训练策略的测试性能另列，不能混为一张“优化耗时”表。
 - 不因为某次 RL 训练失败就认定此类方法无效；超参数调优使用验证任务，保留失败与波动记录。
 
-### 2.6 CMA-ES 与自身消融
+### 2.6 CMA-ES、L-SHADE 与自身消融
 
-- CMA-ES 后续采用成熟库，所有种群个体评估都计入预算；周期变量先优化未包裹的实数，再统一映射到相位。
+- CMA-ES 使用成熟库，所有种群个体评估都计入预算；周期变量先优化未包裹的实数，再统一映射到相位。
+- L-SHADE 使用 success-history 参数自适应、current-to-pbest/1 变异、外部 archive、二项交叉和线性种群缩减。候选相位的差分通过最短角差计算，生成后映射回 `[0, 2*pi)`。
+- L-SHADE 仅能调用统一的标量损失 evaluator，不访问响应基 `G`、目标点复响应或 `phase_vjp()`；每个种群候选均计入场评估预算。
 - `ours_lbfgsb` 和 `ours_adam` 不复制现有优化器，只增加对统一评估和日志接口的适配。
 - 自身消融包括相同初始化下的 Adam/L-BFGS-B，以及几何、零相位、响应对齐初始化。
 
@@ -121,7 +124,8 @@ src/baselines/
   rl_env.py                 SAC/PPO 共用的 Gymnasium 环境
   sac.py                    SAC 训练、加载与评估
   ppo.py                    PPO 训练、加载与评估，第二批
-  cmaes.py                  CMA-ES，第二批
+  cmaes/                    CMA-ES
+  lshade/                   L-SHADE / Differential Evolution
 ```
 
 所有算法相关模块留在 `src/baselines/`；算法成熟后再按实际复杂度决定是否拆分子目录，不先构建通用插件系统。
@@ -132,7 +136,7 @@ src/baselines/
 - [`phase_adjoint_optimizer.py`](../src/training/phase_adjoint_optimizer.py) 继续作为目标场、损失和当前优化器的实现来源，不另写一套不同公式。
 - [`transducer_array.py`](../src/physics/transducer_array.py) 继续负责阵列几何与标定；几何相位和响应初始化的公共逻辑需要时做小范围提取。
 - `baselines` 不实现新 Helmholtz 后端，不修改场景物理模型，不承担障碍物反演。
-- SAC/PPO/CMA-ES 依赖按需导入；未安装 RL 依赖时，几何、GABS、SPSA 和现有求解流程仍应可用。
+- SAC/PPO/CMA-ES 依赖按需导入；L-SHADE 仅依赖 NumPy。未安装可选依赖时，几何、GABS、SPSA、L-SHADE 和现有求解流程仍应可用。
 - `python src/main.py ...` 直接按顶层 `algorithm` 调度；`training.compare_geometric` 可额外输出几何相位对照场。
 
 ### 统一算法接口（拟定）
@@ -147,7 +151,7 @@ solve(problem, initial_phases, budget, rng) -> BaselineResult
 |---|---|
 | 几何基线 | 阵元位置、目标位置、波数，以及最终评估 |
 | 响应对齐 | 目标点复响应，以及最终评估 |
-| GABS / SPSA / CMA-ES | 标量损失与统一报告指标，不访问 G 列或解析梯度 |
+| GABS / SPSA / CMA-ES / L-SHADE | 标量损失与统一报告指标，不访问 G 列或解析梯度 |
 | SAC / PPO | `reset()` / `step()` 产生的公开观测和奖励，不返回解析梯度或直接暴露 G |
 | 我们的方法 | 共享场评估与解析 VJP |
 
@@ -318,7 +322,7 @@ outputs/baseline_comparison/<run_id>/
 
 ### 第 4 步：扩展与鲁棒性
 
-- [ ] 同一 RL 环境接入 PPO；按需要增加 CMA-ES。
+- [x] 同一 RL 环境接入 PPO；已增加 CMA-ES 与 L-SHADE。
 - [ ] 加入球体、侧向手部、多目标以及未见目标位置。
 - [ ] 明确噪声作用于复声场还是幅值，以及模型失配来源，再开展鲁棒性测试。
 - [ ] 加入相位量化与模型访问权限消融，解释结果的适用边界。
@@ -339,6 +343,6 @@ python src/main.py --config src/examples/config.yaml
 python src/compare.py --config src/examples/phase_oblique_reflecting_x_12x12.yaml
 ```
 
-它只构建/加载一次物理响应基，逐项写入 `outputs/algs/<scene>/<algorithm>/`，并生成 `summary.csv/json`。SAC、PPO、CMA-ES 的可选依赖单独列在 `src/baselines/requirements.txt`。
+它只构建/加载一次物理响应基，逐项写入 `outputs/algs/<scene>/<algorithm>/`，并生成 `summary.csv/json`。SAC、PPO、CMA-ES 的可选依赖单独列在 `src/baselines/requirements.txt`；L-SHADE 无额外依赖。
 
-**下一步：在现有斜向反射配置上完成各算法的真实响应基运行和统一结果表。**
+**已完成：L-SHADE 在现有斜向反射配置上以 14448 次场评估达到收敛判据；下一步应在统一评估预算下开展多随机种子统计。**

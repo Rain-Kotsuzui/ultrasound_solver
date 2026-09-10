@@ -1,3 +1,6 @@
+import os
+
+os.environ.setdefault("CUPY_CACHE_IN_MEMORY", "1")
 import cupy as cp
 import cupyx.scipy.sparse.linalg as csplinalg
 

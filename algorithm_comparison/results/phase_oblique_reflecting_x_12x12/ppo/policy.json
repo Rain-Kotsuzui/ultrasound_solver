@@ -1,6 +1,6 @@
 {
   "algorithm": "ppo",
-  "task_fingerprint": "a9df1bb2b2c8cb18dad9d73cc1b23789cbf15931c76c8e477df05b06054eaab7",
+  "task_fingerprint": "f0e0cd44e2732e7fe697fc16255a975f4c88e6508dedce59a1d44a060cf953b9",
   "environment": {
     "horizon": 32,
     "action_scale": 0.2,

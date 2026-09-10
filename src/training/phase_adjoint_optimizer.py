@@ -1,5 +1,8 @@
 from pathlib import Path
+import os
 
+os.environ.setdefault("CUPY_CACHE_IN_MEMORY", "1")
+import cupy as cp
 import numpy as np
 
 
@@ -172,6 +175,25 @@ class AmplitudeFieldLoss:
         )
         return loss, cotangent.astype(np.complex128, copy=False)
 
+    def evaluate_device(self, field, with_cotangent: bool = True):
+        target = self._device_array("target", self.target)
+        weight = self._device_array("weight", self.weight)
+        amplitude = cp.abs(field)
+        residual = amplitude - target
+        weighted = weight * residual
+        loss = 0.5 * cp.real(cp.vdot(weighted, weighted))
+        if not with_cotangent:
+            return loss, None
+        return loss, weight * weight * residual * field / (amplitude + self.eps)
+
+    def _device_array(self, name, value):
+        attribute = f"_gpu_{name}"
+        cached = getattr(self, attribute, None)
+        if cached is None:
+            cached = cp.asarray(value)
+            setattr(self, attribute, cached)
+        return cached
+
     def stats(self, field: np.ndarray) -> tuple[float, float]:
         amplitude = np.abs(field)
         target_mask = self.weight >= 0.5 * float(np.max(self.weight))
@@ -221,6 +243,23 @@ class FocalPressureLoss:
             if with_cotangent:
                 cotangent += self.background_weight / field.size * field
         return focal_loss + background_loss, cotangent
+
+    def evaluate_device(self, field, with_cotangent: bool = True):
+        amplitude = cp.abs(field)
+        indices = tuple(np.asarray(self.target_indices, dtype=np.intp).T)
+        values = amplitude[indices]
+        loss = -self.target_weight * cp.mean(values)
+        if not with_cotangent:
+            if self.background_weight > 0.0:
+                loss += 0.5 * self.background_weight * cp.mean(amplitude * amplitude)
+            return loss, None
+        cotangent = cp.zeros_like(field, dtype=cp.complex128)
+        scale = self.target_weight / len(self.target_indices)
+        cotangent[indices] -= scale * field[indices] / (values + self.eps)
+        if self.background_weight > 0.0:
+            loss += 0.5 * self.background_weight * cp.mean(amplitude * amplitude)
+            cotangent += self.background_weight / field.size * field
+        return loss, cotangent
 
     def stats(self, field: np.ndarray) -> tuple[float, float]:
         amplitude = np.abs(field)
@@ -296,6 +335,42 @@ class FocalContrastLoss:
         )
         cotangent[self.background_mask] += background_cotangent
         return loss, cotangent
+
+    def evaluate_device(self, field, with_cotangent: bool = True):
+        amplitude = cp.abs(field)
+        indices = tuple(np.asarray(self.target_indices, dtype=np.intp).T)
+        target_values = amplitude[indices]
+        loss = -self.target_weight * cp.mean(target_values)
+        background_mask = self._device_array("background_mask", self.background_mask)
+        background_values = amplitude[background_mask]
+        maximum = cp.max(background_values)
+        weights = cp.exp((background_values - maximum) / self.temperature)
+        probabilities = weights / cp.sum(weights)
+        loss += self.sidelobe_weight * (
+            maximum + self.temperature * (
+                cp.log(cp.sum(weights)) - np.log(background_values.size)
+            )
+        )
+        if not with_cotangent:
+            return loss, None
+        cotangent = cp.zeros_like(field, dtype=cp.complex128)
+        scale = self.target_weight / len(self.target_indices)
+        cotangent[indices] -= scale * field[indices] / (target_values + self.eps)
+        cotangent[background_mask] += (
+            self.sidelobe_weight
+            * probabilities
+            * field[background_mask]
+            / (background_values + self.eps)
+        )
+        return loss, cotangent
+
+    def _device_array(self, name, value):
+        attribute = f"_gpu_{name}"
+        cached = getattr(self, attribute, None)
+        if cached is None:
+            cached = cp.asarray(value)
+            setattr(self, attribute, cached)
+        return cached
 
     def stats(self, field: np.ndarray) -> tuple[float, float]:
         amplitude = np.abs(field)

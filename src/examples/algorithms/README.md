@@ -16,12 +16,13 @@ python src/main.py --config src/examples/algorithms/spsa.yaml
 | 贪心坐标搜索 | `gabs` | `phase_levels` |
 | 随机近似 | `spsa` | `learning_rate`、`perturbation`、`alpha`、`gamma` |
 | CMA-ES | `cmaes` | `sigma`、`population_size` |
+| L-SHADE / Differential Evolution | `lshade` | `population_size`、`min_population_size`、`memory_size`、`p_best_rate`、`convergence_patience`、`convergence_relative_tolerance` |
 | Soft Actor-Critic | `sac` | `episode_steps`、`evaluation_steps`、`action_scale`、`reward_scale`、`total_timesteps`、`checkpoint` 等 |
 | Proximal Policy Optimization | `ppo` | 与 `sac` 相同，另加 `n_steps` |
 
-`gabs.yaml`、`spsa.yaml` 和 `sac.yaml` 提供了可复制的完整配置。将其中的 `algorithm` 和 `algorithm_options` 替换为表中的对应值，即可切换到其余算法。
+`gabs.yaml`、`spsa.yaml`、`lshade.yaml` 和 `sac.yaml` 提供了可复制的完整配置。将其中的 `algorithm` 和 `algorithm_options` 替换为表中的对应值，即可切换到其余算法。
 
-SAC、PPO、CMA-ES 需要可选依赖：
+SAC、PPO、CMA-ES 需要可选依赖；L-SHADE 仅依赖 NumPy：
 
 ```powershell
 python -m pip install -r src/baselines/requirements.txt

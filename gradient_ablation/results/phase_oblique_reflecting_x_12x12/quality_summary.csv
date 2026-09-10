@@ -1,0 +1,16 @@
+optimizer,quality_target,loss_threshold,reached,field_evaluations_to_target,seconds_to_target
+adam,lbfgsb_quality,-1593.498,True,89,0.706232899974566
+adam,strong_quality,-1800.0,True,163,1.2559887999668717
+adam,adam_quality,-1860.0,True,350,2.693362199992407
+adamw,lbfgsb_quality,-1593.498,True,89,0.7122242000186816
+adamw,strong_quality,-1800.0,True,163,1.3201612000120804
+adamw,adam_quality,-1860.0,True,350,2.9341961999889463
+lbfgsb,lbfgsb_quality,-1593.498,True,289,23.919015599996783
+lbfgsb,strong_quality,-1800.0,False,,
+lbfgsb,adam_quality,-1860.0,False,,
+lion,lbfgsb_quality,-1593.498,True,165,1.1712204000214115
+lion,strong_quality,-1800.0,True,252,1.8013241000007838
+lion,adam_quality,-1860.0,True,457,3.346574400027748
+nonlinear_cg,lbfgsb_quality,-1593.498,True,148,1.0964007999864407
+nonlinear_cg,strong_quality,-1800.0,True,841,6.079671899962705
+nonlinear_cg,adam_quality,-1860.0,True,2957,21.142672599991783

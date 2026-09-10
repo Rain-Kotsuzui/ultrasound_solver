@@ -6,6 +6,25 @@ import warnings
 import numpy as np
 
 
+def _adaptive_rolling_median(values):
+    """Suppress local optimizer noise without averaging across optimization stages."""
+    values = np.asarray(values, dtype=float)
+    if values.size < 5:
+        return values
+    window = min(101, max(5, 2 * (values.size // 100) + 1))
+    if window % 2 == 0:
+        window += 1
+    radius = window // 2
+    padded = np.pad(values, radius, mode="edge")
+    return np.asarray(
+        [
+            np.median(padded[index:index + window])
+            for index in range(values.size)
+        ],
+        dtype=float,
+    )
+
+
 def save_loss_history(history, output_path, title):
     """Write a durable, headless-safe PNG from recorded evaluation history."""
     if not history:
@@ -35,39 +54,69 @@ def save_loss_history(history, output_path, title):
 
 
 def save_loss_dashboard(histories, output_path):
-    """Write all completed algorithms into one static loss-dashboard PNG."""
+    """Write all algorithms into one comparable, noise-robust loss PNG."""
     if not histories:
         return None
     from matplotlib.backends.backend_agg import FigureCanvasAgg
     from matplotlib.figure import Figure
 
     names = list(histories)
-    columns = math.ceil(math.sqrt(len(names)))
-    rows = math.ceil(len(names) / columns)
-    figure = Figure(
-        figsize=(5.2 * columns, 3.5 * rows),
-        constrained_layout=True,
-    )
+    figure = Figure(figsize=(12.5, 7.0), constrained_layout=True)
     FigureCanvasAgg(figure)
+    axis = figure.add_subplot(1, 1, 1)
+    colors = (
+        "#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c",
+        "#0891b2", "#be123c", "#4d7c0f", "#7c3aed",
+    )
     for index, name in enumerate(names):
-        axis = figure.add_subplot(rows, columns, index + 1)
         history = histories[name]
-        evaluations = [row["evaluation"] for row in history]
+        evaluations = np.asarray([row["evaluation"] for row in history])
+        losses = np.asarray([row["loss"] for row in history])
+        best_losses = np.asarray([row["best_loss"] for row in history])
+        color = colors[index % len(colors)]
         marker = "o" if len(evaluations) == 1 else None
         axis.plot(
-            evaluations, [row["loss"] for row in history],
-            color="#2563eb", linewidth=1.1, alpha=0.72, marker=marker,
-            label="Current",
+            evaluations,
+            losses,
+            color=color,
+            linewidth=0.65,
+            alpha=0.16,
+            marker=marker,
         )
         axis.plot(
-            evaluations, [row["best_loss"] for row in history],
-            color="#dc2626", linewidth=1.7, marker=marker, label="Best",
+            evaluations,
+            _adaptive_rolling_median(losses),
+            color=color,
+            linewidth=1.8,
+            marker=marker,
+            label=name,
         )
-        axis.set_title(name)
-        axis.set_xlabel("Field evaluations")
-        axis.set_ylabel("Loss")
-        axis.grid(True, alpha=0.28)
-        axis.legend(loc="best", fontsize=8)
+        axis.plot(
+            evaluations,
+            best_losses,
+            color=color,
+            linewidth=0.9,
+            linestyle="--",
+            alpha=0.52,
+        )
+    axis.set_title("Algorithm Loss Comparison")
+    axis.set_xlabel("Field evaluations")
+    axis.set_ylabel("Loss")
+    axis.grid(True, alpha=0.28)
+    axis.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.12),
+        ncol=min(5, len(names)),
+        fontsize=8,
+    )
+    axis.text(
+        0.01,
+        0.02,
+        "solid: rolling median current loss; dashed: best-so-far; faint: raw loss",
+        transform=axis.transAxes,
+        fontsize=8,
+        alpha=0.76,
+    )
     figure.savefig(str(output_path), dpi=180)
     return str(output_path)
 

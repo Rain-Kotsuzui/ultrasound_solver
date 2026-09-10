@@ -19,22 +19,28 @@ ALGORITHMS = (
     "gabs",
     "spsa",
     "cmaes",
+    "lshade",
     "sac",
     "ppo",
 )
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        sys.argv.extend(
-            [
-                "--config",
-                str(ROOT / "algorithm_comparison" / "config"
-                    / "phase_oblique_reflecting_x_12x12.yaml"),
-                "--output-dir",
-                str(ROOT / "algorithm_comparison" / "results"),
-                "--algorithms",
-                ",".join(ALGORITHMS),
-            ]
-        )
+    defaults = [
+        "--config",
+        str(
+            ROOT / "algorithm_comparison" / "config"
+            / "phase_oblique_reflecting_x_12x12.yaml"
+        ),
+        "--output-dir",
+        str(ROOT / "algorithm_comparison" / "results"),
+        "--algorithms",
+        ",".join(ALGORITHMS),
+    ]
+    if "--config" not in sys.argv:
+        sys.argv.extend(defaults[:2])
+    if "--output-dir" not in sys.argv:
+        sys.argv.extend(defaults[2:4])
+    if "--algorithms" not in sys.argv:
+        sys.argv.extend(defaults[4:])
     main()
