@@ -1,0 +1,83 @@
+{
+  "source_config": "gradient_ablation\\config\\phase_oblique_reflecting_x_12x12.yaml",
+  "shared_basis_build_or_load_seconds": 5.249354200030211,
+  "optimizers": [
+    "lbfgsb",
+    "adam",
+    "adamw",
+    "lion",
+    "nonlinear_cg"
+  ],
+  "rows": [
+    {
+      "optimizer": "lbfgsb",
+      "status": "completed",
+      "error": "",
+      "best_loss": -1593.4981302459566,
+      "final_loss": -1593.4981302459566,
+      "target_mean": 3124.692065153087,
+      "background_max": 1221.2543532399993,
+      "contrast": 2.558592366007334,
+      "field_evaluations": 306,
+      "vjp_evaluations": 306,
+      "optimization_seconds": 120.58892300003208,
+      "termination_reason": "time_budget"
+    },
+    {
+      "optimizer": "adam",
+      "status": "completed",
+      "error": "",
+      "best_loss": -1858.7935161884045,
+      "final_loss": -1858.7935161884045,
+      "target_mean": 3388.405277775841,
+      "background_max": 1217.4064004094423,
+      "contrast": 2.783298392908269,
+      "field_evaluations": 306,
+      "vjp_evaluations": 306,
+      "optimization_seconds": 120.70273799996357,
+      "termination_reason": "time_budget"
+    },
+    {
+      "optimizer": "adamw",
+      "status": "completed",
+      "error": "",
+      "best_loss": -1859.9631741598275,
+      "final_loss": -1859.9631741598275,
+      "target_mean": 3387.105409602787,
+      "background_max": 1215.7665165056603,
+      "contrast": 2.7859834627934643,
+      "field_evaluations": 347,
+      "vjp_evaluations": 347,
+      "optimization_seconds": 120.96752980002202,
+      "termination_reason": "time_budget"
+    },
+    {
+      "optimizer": "lion",
+      "status": "completed",
+      "error": "",
+      "best_loss": -1854.3251677129615,
+      "final_loss": -1854.3251677129615,
+      "target_mean": 3394.1794188861836,
+      "background_max": 1230.6550903525733,
+      "contrast": 2.7580265547138616,
+      "field_evaluations": 337,
+      "vjp_evaluations": 337,
+      "optimization_seconds": 120.83568839996587,
+      "termination_reason": "time_budget"
+    },
+    {
+      "optimizer": "nonlinear_cg",
+      "status": "completed",
+      "error": "",
+      "best_loss": -1703.4199241087504,
+      "final_loss": -1703.4199241087504,
+      "target_mean": 3272.682087335309,
+      "background_max": 1253.3107152036414,
+      "contrast": 2.6112296397334753,
+      "field_evaluations": 275,
+      "vjp_evaluations": 275,
+      "optimization_seconds": 120.7400741999736,
+      "termination_reason": "time_budget"
+    }
+  ]
+}

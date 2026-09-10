@@ -19,3 +19,10 @@ outputs/baseline_test_deps/
 !algorithm_comparison/**/*.npz
 !algorithm_comparison/**/*.npy
 algorithm_comparison/**/phase_response_basis.npy
+
+# Published gradient-ablation results, excluding the rebuildable response basis.
+!gradient_ablation/
+!gradient_ablation/**/
+!gradient_ablation/**/*.npz
+!gradient_ablation/**/*.npy
+gradient_ablation/**/phase_response_basis.npy

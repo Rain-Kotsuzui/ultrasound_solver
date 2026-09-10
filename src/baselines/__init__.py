@@ -6,7 +6,11 @@ ALGORITHMS = (
     "adjoint", "geometric", "response_alignment", "gabs", "spsa", "sac", "ppo", "cmaes",
 )
 OPTIONS = {
-    "adjoint": {"optimizer", "learning_rate", "gradient_check", "gradient_check_step"},
+    "adjoint": {
+        "optimizer", "learning_rate", "weight_decay", "beta1", "beta2",
+        "initial_step", "armijo", "line_search_shrink", "max_line_search",
+        "gradient_check", "gradient_check_step",
+    },
     "geometric": set(),
     "response_alignment": set(),
     "gabs": {"phase_levels"},

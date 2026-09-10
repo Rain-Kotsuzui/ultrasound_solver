@@ -118,6 +118,22 @@ class BaselineTests(unittest.TestCase):
         self.assertEqual(problem.field_evaluations, 17)
         self.assertEqual(len(result.metadata["gradient_checks"]), 4)
 
+    def test_all_analytic_gradient_update_rules(self):
+        for optimizer, options in (
+            ("lbfgsb", {}),
+            ("adam", {"learning_rate": 0.05}),
+            ("adamw", {"learning_rate": 0.05, "weight_decay": 0.0}),
+            ("lion", {"learning_rate": 0.02}),
+            ("nonlinear_cg", {"initial_step": 0.25}),
+        ):
+            cfg = config()
+            cfg.training.iterations = 3
+            cfg.algorithm_options = {"optimizer": optimizer, **options}
+            problem, result = run(cfg, ToyBasis(cfg))
+            self.assertGreater(problem.vjp_evaluations, 0)
+            self.assertLessEqual(problem.field_evaluations, cfg.training.max_evaluations)
+            self.assertTrue(np.isfinite(result.best.loss))
+
     def test_budget_invalid_inputs(self):
         cfg = config()
         cfg.training.max_evaluations = 1

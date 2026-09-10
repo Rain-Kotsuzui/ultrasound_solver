@@ -1,4 +1,4 @@
-"""Response-basis analytic VJP with L-BFGS-B or Adam."""
+"""Response-basis analytic VJP with several phase-update rules."""
 
 import numpy as np
 
@@ -7,8 +7,10 @@ from baselines.common import BudgetExhausted, TimeBudgetExhausted, positive_floa
 
 def solve(problem, options):
     method = options.get("optimizer", "adam")
-    if method not in {"lbfgsb", "adam"}:
-        raise ValueError("adjoint optimizer must be lbfgsb or adam")
+    if method not in {"lbfgsb", "adam", "adamw", "lion", "nonlinear_cg"}:
+        raise ValueError(
+            "adjoint optimizer must be lbfgsb, adam, adamw, lion or nonlinear_cg"
+        )
     current = problem.evaluate(problem.initial_phases, gradient=True)
     checks = []
     try:
@@ -29,9 +31,12 @@ def solve(problem, options):
                       f"finite_diff={numerical:.6e} scaled_error={error:.3e}")
         if problem.iterations == 0:
             return problem.result(current, "iteration_limit", gradient_checks=checks)
-        if method == "adam":
+        if method in {"adam", "adamw"}:
             rate = positive_float(options.get("learning_rate", 0.05),
                                   "learning_rate")
+            decay = float(options.get("weight_decay", 0.0))
+            if not np.isfinite(decay) or decay < 0:
+                raise ValueError("weight_decay must be finite and nonnegative")
             first = np.zeros(problem.size)
             second = np.zeros(problem.size)
             for step in range(1, problem.iterations + 1):
@@ -39,8 +44,82 @@ def solve(problem, options):
                 second = 0.999 * second + 0.001 * current.gradient**2
                 update = rate * (first / (1 - 0.9**step)) / (
                     np.sqrt(second / (1 - 0.999**step)) + 1e-8)
-                current = problem.evaluate(current.phases - update, gradient=True)
-            return problem.result(current, "iteration_limit", gradient_checks=checks)
+                phases = current.phases - update
+                # Decoupled weight decay is supplied for optimizer parity only.
+                # Default zero is appropriate because raw phase magnitude is periodic.
+                if method == "adamw" and decay:
+                    phases *= 1.0 - rate * decay
+                current = problem.evaluate(phases, gradient=True)
+            return problem.result(
+                current, "iteration_limit", gradient_checks=checks
+            )
+
+        if method == "lion":
+            rate = positive_float(options.get("learning_rate", 0.01),
+                                  "learning_rate")
+            beta1 = float(options.get("beta1", 0.9))
+            beta2 = float(options.get("beta2", 0.99))
+            if not (0 <= beta1 < 1 and 0 <= beta2 < 1):
+                raise ValueError("Lion beta1 and beta2 must be in [0, 1)")
+            momentum = np.zeros(problem.size)
+            for _ in range(problem.iterations):
+                direction = beta1 * momentum + (1.0 - beta1) * current.gradient
+                momentum = beta2 * momentum + (1.0 - beta2) * current.gradient
+                current = problem.evaluate(
+                    current.phases - rate * np.sign(direction), gradient=True
+                )
+            return problem.result(
+                current, "iteration_limit", gradient_checks=checks
+            )
+
+        if method == "nonlinear_cg":
+            initial_step = positive_float(
+                options.get("initial_step", 0.25), "initial_step"
+            )
+            armijo = float(options.get("armijo", 1e-4))
+            shrink = float(options.get("line_search_shrink", 0.5))
+            max_line_search = int(options.get("max_line_search", 12))
+            if not 0 < armijo < 1 or not 0 < shrink < 1 or max_line_search < 1:
+                raise ValueError("Invalid nonlinear_cg line-search options")
+            direction = -current.gradient
+            for _ in range(problem.iterations):
+                if np.dot(current.gradient, direction) >= 0:
+                    direction = -current.gradient
+                scale = max(float(np.max(np.abs(direction))), 1.0)
+                direction = direction / scale
+                directional_derivative = float(np.dot(current.gradient, direction))
+                accepted = None
+                step = initial_step
+                for _ in range(max_line_search):
+                    candidate = problem.evaluate(
+                        current.phases + step * direction,
+                        gradient=True,
+                        stage="line_search",
+                    )
+                    if candidate.loss <= current.loss + armijo * step * directional_derivative:
+                        accepted = candidate
+                        break
+                    step *= shrink
+                if accepted is None:
+                    return problem.result(
+                        current, "line_search_stalled", gradient_checks=checks
+                    )
+                previous_gradient = current.gradient
+                current = accepted
+                denominator = float(np.dot(previous_gradient, previous_gradient))
+                beta = max(
+                    0.0,
+                    float(
+                        np.dot(
+                            current.gradient,
+                            current.gradient - previous_gradient,
+                        )
+                    ) / max(denominator, 1e-30),
+                )
+                direction = -current.gradient + beta * direction
+            return problem.result(
+                current, "iteration_limit", gradient_checks=checks
+            )
 
         from scipy.optimize import minimize
 

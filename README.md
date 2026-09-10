@@ -41,6 +41,7 @@ docs/
 
 obstacle_displacement_study/ 障碍物轻移实验脚本与结果整理
 algorithm_comparison/        可上传的算法对比配置、结果与曲线
+gradient_ablation/           可上传的解析梯度更新器消融实验
 outputs/                     响应基、优化结果和可视化产物，不提交
 requirements.txt             Python 依赖列表
 ```
@@ -86,6 +87,7 @@ python src/visualizer.py outputs/phase_oblique_reflecting_x_12x12/result.npz --c
 - [`docs/SOLVER_ARCHITECTURE.html`](docs/SOLVER_ARCHITECTURE.html)：求解器架构和模块边界。
 - [`docs/BASELINE_COMPARISON_PLAN.md`](docs/BASELINE_COMPARISON_PLAN.md)：相位算法对比口径、预算和实施状态。
 - [`algorithm_comparison/README.md`](algorithm_comparison/README.md)：12 x 12 斜向反射场景的完整算法对比结果与复现入口。
+- [`gradient_ablation/README.md`](gradient_ablation/README.md)：同一解析梯度下的 L-BFGS-B、Adam、AdamW、Lion 和非线性共轭梯度消融。
 
 ## 典型工作流
 
@@ -99,6 +101,7 @@ python src/visualizer.py outputs/phase_oblique_reflecting_x_12x12/result.npz --c
 
 - `outputs/`、`.npy`、`.npz`、响应基缓存和截图属于运行产物，默认不提交。
 - `algorithm_comparison/` 是对外发布的例外，保留本次算法对比的配置、结果和曲线，可直接上传。
+- `gradient_ablation/` 同样是对外发布的例外，保留优化器消融的配置、结果和曲线；大型响应基缓存不提交。
 - 可复现实验应提交 YAML 配置，而不是提交大型结果文件。
 - `src/README.md` 只维护代码使用方式和 config 参数定义。
 - 根目录 `README.md` 只维护项目概览、结构和文档入口。
