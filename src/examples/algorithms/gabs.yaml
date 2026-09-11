@@ -13,7 +13,7 @@ transducer_specs:
   spl_distance: 0.3
   diameter: 0.01
   pitch: 0.01
-  array_n: 12
+  array_n: 16
 
 domain:
   box_size: [0.12, 0.12, 0.12]

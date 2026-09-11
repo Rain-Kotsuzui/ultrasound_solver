@@ -7,8 +7,8 @@ import time
 
 import numpy as np
 
-from config import SimulationConfig
-from baselines import ALGORITHMS, run, validate_algorithm
+from algorithm.config import SimulationConfig
+from algorithm.baselines import ALGORITHMS, run, validate_algorithm
 
 
 def scene_metadata(cfg, solver):
@@ -29,6 +29,62 @@ def scene_metadata(cfg, solver):
         grid = np.stack(np.meshgrid(*axes, indexing="ij"), axis=-1)
         output["sdf"] = np.linalg.norm(grid - obs["center"], axis=-1) - obs["radius"]
     return output
+
+
+def _phase_artifact_paths(result_path):
+    return {
+        "recommended_phase_file": (
+            f"{result_path.stem}_best_phases_rad.npy"
+        ),
+        "final_phase_file": f"{result_path.stem}_final_phases_rad.npy",
+        "manifest_file": f"{result_path.stem}_phase_export.json",
+    }
+
+
+def save_phase_artifacts(result_path, cfg, result, metadata):
+    """Save portable continuous phase vectors beside the full field result."""
+    result_path = Path(result_path)
+    artifacts = _phase_artifact_paths(result_path)
+    best_phases = np.asarray(result.best.phases, dtype=np.float64)
+    final_phases = np.asarray(result.final.phases, dtype=np.float64)
+    if best_phases.ndim != 1 or final_phases.shape != best_phases.shape:
+        raise ValueError("Phase artifacts require matching one-dimensional vectors")
+    if not np.isfinite(best_phases).all() or not np.isfinite(final_phases).all():
+        raise ValueError("Phase artifacts must be finite")
+
+    np.save(result_path.with_name(artifacts["recommended_phase_file"]), best_phases)
+    np.save(result_path.with_name(artifacts["final_phase_file"]), final_phases)
+    manifest = {
+        "schema_version": 1,
+        "result_file": result_path.name,
+        "recommended_phase_file": artifacts["recommended_phase_file"],
+        "final_phase_file": artifacts["final_phase_file"],
+        "recommended_phase_kind": "best_evaluated",
+        "phase_unit": "rad",
+        "phase_convention": "solver_source_boundary",
+        "hardware_ready": False,
+        "hardware_note": (
+            "Continuous solver phases require device mapping, calibration, "
+            "and quantization before transmission."
+        ),
+        "num_transducers": int(best_phases.size),
+        "array_shape": [cfg.specs.array_n, cfg.specs.array_n],
+        "frequency_hz": cfg.frequency,
+        "target_points_m": np.asarray(cfg.targets, dtype=np.float64).tolist(),
+        "algorithm": cfg.algorithm,
+        "algorithm_options": cfg.algorithm_options,
+        "seed": cfg.training.seed,
+        "termination_reason": result.termination_reason,
+        "best_loss": float(result.best.loss),
+        "final_loss": float(result.final.loss),
+        "field_evaluations": metadata.get("field_evaluations"),
+        "vjp_evaluations": metadata.get("vjp_evaluations"),
+    }
+    result_path.with_name(artifacts["manifest_file"]).write_text(
+        json.dumps(manifest, indent=2, allow_nan=False),
+        encoding="utf-8",
+    )
+    return artifacts
 
 
 def save_phase_optimization_result(
@@ -89,17 +145,23 @@ def save_phase_optimization_result(
     }
     if extra_metadata:
         metadata.update(extra_metadata)
+    phase_artifacts = _phase_artifact_paths(path)
+    metadata["phase_artifacts"] = phase_artifacts
     output["run_metadata"] = json.dumps(metadata, allow_nan=False)
     output["evaluation_log"] = json.dumps(result.history, allow_nan=False)
     path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(path, **output)
-    from baselines.loss_curve import save_loss_history
+    save_phase_artifacts(path, cfg, result, metadata)
+    from algorithm.baselines.loss_curve import save_loss_history
     save_loss_history(
         result.history,
         loss_plot_path,
         f"{cfg.algorithm}: current and best loss",
     )
-    print(f"[Main] Saved {path}")
+    print(
+        f"[Main] Saved {path}; recommended phases: "
+        f"{phase_artifacts['recommended_phase_file']}"
+    )
     return output, metadata
 
 
@@ -111,7 +173,7 @@ def execute(cfg):
         )
     if cfg.mode == "phase_optimization":
         validate_algorithm(cfg)
-    from solvers.helmholtz_solver import HelmholtzDirectSolver
+    from algorithm.solvers.helmholtz_solver import HelmholtzDirectSolver
 
     solver = HelmholtzDirectSolver(cfg)
     basis = None
@@ -146,7 +208,7 @@ def execute(cfg):
         if solver.condensed_solver is not None:
             solver.condensed_solver.close()
     if cfg.io.auto_visualize:
-        from visualizer import show_pyvista_scene
+        from algorithm.visualizer import show_pyvista_scene
         show_pyvista_scene(
             cfg.io.output_file, field_name="amplitude",
             compare_methods=cfg.mode == "phase_optimization" and cfg.training.compare_geometric,

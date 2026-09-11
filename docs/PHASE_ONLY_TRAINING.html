@@ -89,34 +89,9 @@
 
   <h1>Fixed-Scene Phase Optimization with a Full-Field Response Basis</h1>
 
-  <p class="note">该训练模式不增加第四种线性求解器。响应基由现有 <code>cudss_hybrid_direct</code> 后端离线构建，随后作为相位优化的精确缓存层。物理模型见 <a href="ACOUSTIC_PHYSICS_DERIVATION.html">ACOUSTIC_PHYSICS_DERIVATION.html</a>；完整梯度推导见 <a href="GRADIENT_DERIVATION.html">GRADIENT_DERIVATION.html</a>。</p>
+  <p class="note">本文档只描述当前已实现的固定场景 phase-only 优化。响应基由选定的 Helmholtz 求解后端离线构建，随后作为在线优化的精确缓存层。物理模型见 <a href="ACOUSTIC_PHYSICS_DERIVATION.html">ACOUSTIC_PHYSICS_DERIVATION.html</a>；完整梯度推导见 <a href="GRADIENT_DERIVATION.html">GRADIENT_DERIVATION.html</a>。</p>
 
-  <h2>两类逆向问题</h2>
-
-  <table>
-    <thead>
-      <tr>
-        <th>mode</th>
-        <th>优化变量</th>
-        <th>矩阵是否固定</th>
-        <th>是否可使用响应基</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><code>phase_optimization</code></td>
-        <td>81 个换能器相位</td>
-        <td>固定</td>
-        <td>可以，且数学上严格</td>
-      </tr>
-      <tr>
-        <td><code>sdf_inverse</code></td>
-        <td>障碍物几何或材料分布</td>
-        <td>每轮变化</td>
-        <td>不可以，必须重新装配并求解 PDE</td>
-      </tr>
-    </tbody>
-  </table>
+  <p>优化变量仅为 <code>M</code> 个换能器相位。障碍物、材料、边界、频率、阵元位置和阵元幅值在一次优化期间保持不变；改变其中任一项都必须重新构建响应基。</p>
 
   <h2>相位相关右端</h2>
 
@@ -310,14 +285,14 @@ phase_response_basis.npy.json</code></pre>
 
   <h2>内存与计算量</h2>
 
-  <p>对于当前 \(108^3\) 网格和 \(9\times9=81\) 个阵元：</p>
+  <p>响应基的存储量随网格自由度 \(N\) 和阵元数 \(M\) 线性增长。当前公开算法对比使用 \(41^3\) 网格和 \(12\times12=144\) 个阵元：</p>
 
   \[
-  N=108^3=1{,}259{,}712
+  N=41^3=68{,}921
   \]
 
   \[
-  M=81
+  M=144
   \]
 
   <p><code>complex128</code> 响应基大小为：</p>
@@ -325,9 +300,9 @@ phase_response_basis.npy.json</code></pre>
   \[
   NM\times16
   =
-  1{,}632{,}586{,}752\ \mathrm{bytes}
+  158{,}793{,}984\ \mathrm{bytes}
   \approx
-  1.52\ \mathrm{GiB}
+  151.4\ \mathrm{MiB}
   \]
 
   <p>完整复声场本身约为：</p>
@@ -335,10 +310,10 @@ phase_response_basis.npy.json</code></pre>
   \[
   N\times16
   \approx
-  19.2\ \mathrm{MiB}
+  1.05\ \mathrm{MiB}
   \]
 
-  <p>构建完成并释放直接分解因子后，在线 GPU 主要保存约 1.52 GiB 的 \(G\)，显著低于 HMM 求解期间的因子与工作区占用。</p>
+  <p>高分辨率验证会迅速放大这项成本：例如在同一物理域由 \(41^3\) 提升到 \(121^3\)，响应基仅存储量约增至 4 GiB。当前策略是低分辨率搜索相位、高分辨率复算或 warm-start 精修，而不是将低分辨率结果直接视为物理解。</p>
 
   <h2>CPU 与 GPU 在线路径</h2>
 
@@ -381,7 +356,8 @@ phase_response_basis.npy.json</code></pre>
   <pre><code>mode: "phase_optimization"
 algorithm: "adjoint"
 algorithm_options:
-  optimizer: "lbfgsb"
+  optimizer: "adam"
+  learning_rate: 0.05
   gradient_check: true
   gradient_check_step: 1.0e-3
 
@@ -395,52 +371,18 @@ training:
 solver:
   backend: "cudss_hybrid_direct"</code></pre>
 
-  <p><code>phase_optimization</code> 强制要求高性能持久直接后端，因为响应基构建必须复用同一份精确因子。</p>
+  <p><code>phase_optimization</code> 当前要求 <code>cudss_hybrid_direct</code>，以便在构建响应基时复用同一份直接分解因子；GPU 常驻响应基适合频繁优化迭代。</p>
 
   <h2>Python 接口</h2>
 
   <pre><code>solver = HelmholtzDirectSolver(cfg)
 basis = solver.build_phase_response_basis()
 
-# 可选：将约 1.52 GiB 响应基加载到 GPU
+# 可选：将当前响应基加载到 GPU
 basis.to_gpu()
 
 field = basis.field(phases)
 phase_gradient = basis.phase_vjp(field_cotangent, phases)</code></pre>
 
-  <h2>SDF 反演预留模式</h2>
-
-  <p>当优化变量包含障碍物分布时：</p>
-
-  \[
-  \rho=\rho(\theta),
-  \qquad
-  c=c(\theta)
-  \]
-
-  <p>因此：</p>
-
-  \[
-  A=A(\theta)
-  \]
-
-  <p>固定响应基不再成立：</p>
-
-  \[
-  A(\theta)^{-1}B
-  \neq
-  A(\theta_0)^{-1}B
-  \]
-
-  <p><code>mode: "sdf_inverse"</code> 因而明确禁用相位响应基。当前该模式仅保留配置语义，未来需要：</p>
-
-  <ol>
-    <li>根据障碍物参数重新生成 \(\rho(\theta)\) 和 \(c(\theta)\)。</li>
-    <li>重新装配 \(A(\theta)\)。</li>
-    <li>执行当前场景的前向求解。</li>
-    <li>执行 PDE 伴随求解。</li>
-    <li>通过 \(\partial A/\partial\theta\) 计算障碍物梯度。</li>
-  </ol>
-
-  <p class="warn">相位响应基只能跨相位迭代复用，不能跨障碍物、材料、频率、网格、边界条件或阵元几何变化复用。</p>
+  <p class="warn">相位响应基只能跨相位迭代复用，不能跨障碍物、材料、频率、网格、边界条件或阵元几何变化复用。优化这些场景参数属于不同问题，不在当前训练接口范围内。</p>
 </div>

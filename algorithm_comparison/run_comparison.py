@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 os.chdir(ROOT)
 sys.path.insert(0, str(ROOT / "src"))
 
-from compare import main
+from algorithm.compare import main
 
 
 ALGORITHMS = (
@@ -30,7 +30,7 @@ if __name__ == "__main__":
         "--config",
         str(
             ROOT / "algorithm_comparison" / "config"
-            / "phase_oblique_reflecting_x_12x12.yaml"
+            / "phase_oblique_reflecting_x_16x16.yaml"
         ),
         "--output-dir",
         str(ROOT / "algorithm_comparison" / "results"),

@@ -13,17 +13,23 @@ import numpy as np
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from baselines import run, validate_algorithm, ALGORITHMS
-from baselines.common import (
+from algorithm.baselines import run, validate_algorithm, ALGORITHMS
+from algorithm.baselines.common import (
     PhaseProblem, BudgetExhausted, TimeBudgetExhausted,
 )
-from compare_visualizer import _load_results
-from baselines.loss_curve import ComparisonLossDashboard
-from baselines.loss_curve import save_loss_dashboard, save_loss_history
-from compare import PROFILES, _copy_profile, _summary_row
-from config import (SimulationConfig, PhysicsConfig, TransducerSpecsConfig,
-                    DomainConfig, IOConfig, TrainingConfig)
-from physics.transducer_array import TransducerArray
+from algorithm.compare_visualizer import _load_results
+from algorithm.baselines.loss_curve import ComparisonLossDashboard
+from algorithm.baselines.loss_curve import save_loss_dashboard, save_loss_history
+from algorithm.compare import PROFILES, _copy_profile, _summary_row
+from algorithm.config import (
+    SimulationConfig,
+    PhysicsConfig,
+    TransducerSpecsConfig,
+    DomainConfig,
+    IOConfig,
+    TrainingConfig,
+)
+from algorithm.physics.transducer_array import TransducerArray
 
 
 def config(algorithm="adjoint", loss="focal_pressure"):
@@ -177,14 +183,18 @@ class BaselineTests(unittest.TestCase):
         cfg = config("spsa")
         cfg.training.show_loss_curve = True
         cfg.training.iterations = 2
-        with patch("baselines.loss_curve.LiveLossCurve") as curve_class:
+        with patch(
+            "algorithm.baselines.loss_curve.LiveLossCurve"
+        ) as curve_class:
             curve = curve_class.return_value
             problem, result = run(cfg, ToyBasis(cfg))
         self.assertEqual(curve.update.call_count, problem.field_evaluations)
         curve.finalize.assert_called_once_with(result.termination_reason)
 
     def test_comparison_dashboard_binds_one_curve_per_algorithm(self):
-        with patch("baselines.loss_curve._interactive_pyplot") as pyplot:
+        with patch(
+            "algorithm.baselines.loss_curve._interactive_pyplot"
+        ) as pyplot:
             figure = MagicMock()
             axes = np.empty((1, 2), dtype=object)
             axes[0, 0] = MagicMock()
@@ -216,6 +226,35 @@ class BaselineTests(unittest.TestCase):
             save_loss_dashboard({"adjoint": history, "spsa": history}, dashboard)
             self.assertGreater(curve.stat().st_size, 1000)
             self.assertGreater(dashboard.stat().st_size, 1000)
+
+    def test_phase_artifacts_are_saved_for_hardware_export(self):
+        from main import save_phase_artifacts
+
+        cfg = config()
+        result = SimpleNamespace(
+            best=SimpleNamespace(
+                phases=np.array([0.1, 0.2, 0.3, 0.4]),
+                loss=-2.0,
+            ),
+            final=SimpleNamespace(
+                phases=np.array([0.4, 0.3, 0.2, 0.1]),
+                loss=-1.0,
+            ),
+            termination_reason="converged",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            result_path = Path(directory) / "result.npz"
+            artifacts = save_phase_artifacts(
+                result_path, cfg, result, {"algorithm": "adjoint"}
+            )
+            best_path = result_path.with_name(
+                artifacts["recommended_phase_file"]
+            )
+            manifest_path = result_path.with_name(artifacts["manifest_file"])
+            np.testing.assert_allclose(np.load(best_path), result.best.phases)
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self.assertFalse(manifest["hardware_ready"])
+            self.assertEqual(manifest["recommended_phase_kind"], "best_evaluated")
 
     def test_comparison_profiles_use_shared_initialization_and_budget(self):
         root = Path("outputs/test_compare_profiles")
@@ -301,7 +340,7 @@ class BaselineTests(unittest.TestCase):
 
     @unittest.skipUnless(importlib.util.find_spec("stable_baselines3"), "optional RL not installed")
     def test_rl_training_loading_and_reward(self):
-        from baselines.rl import PhaseEnv
+        from algorithm.baselines.rl import PhaseEnv
         from stable_baselines3.common.env_checker import check_env
         cfg = config("sac")
         p = PhaseProblem(cfg, ToyBasis(cfg))

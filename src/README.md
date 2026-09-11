@@ -18,7 +18,7 @@ python src/main.py --config src/examples/config.yaml
 运行远斜向目标点、`+x` 反射边界、传统方法对比示例：
 
 ```powershell
-python src/main.py --config src/examples/phase_oblique_reflecting_x_12x12.yaml
+python src/main.py --config src/examples/phase_oblique_reflecting_x_16x16.yaml
 ```
 
 ## 可视化
@@ -26,57 +26,70 @@ python src/main.py --config src/examples/phase_oblique_reflecting_x_12x12.yaml
 列出结果文件中的可视化字段：
 
 ```powershell
-python src/visualizer.py outputs/phase_oblique_reflecting_x_12x12/result.npz --list-fields
+python src/algorithm/visualizer.py outputs/phase_oblique_reflecting_x_16x16/result.npz --list-fields
 ```
 
 查看优化后的振幅场：
 
 ```powershell
-python src/visualizer.py outputs/phase_oblique_reflecting_x_12x12/result.npz --field amplitude --percentile 95 --hide-source-layers 4
+python src/algorithm/visualizer.py outputs/phase_oblique_reflecting_x_16x16/result.npz --field amplitude --percentile 95 --hide-source-layers 4
 ```
 
 同屏对比传统几何相位和优化相位：
 
 ```powershell
-python src/visualizer.py outputs/phase_oblique_reflecting_x_12x12/result.npz --compare-methods --percentile 95 --hide-source-layers 4
+python src/algorithm/visualizer.py outputs/phase_oblique_reflecting_x_16x16/result.npz --compare-methods --percentile 95 --hide-source-layers 4
 ```
 
 红色等值面表示传统几何相位结果，蓝色等值面表示优化相位结果；两个滑条分别控制两种方法的等值面阈值。
 
 ## 批量算法对比
 
-对固定场景依次运行几何相位、响应对齐、伴随梯度、GABS、SPSA、CMA-ES、SAC 和 PPO：
+对固定场景依次运行几何相位、响应对齐、伴随梯度、GABS、SPSA、CMA-ES、L-SHADE、SAC 和 PPO：
 
 ```powershell
-python src/compare.py --config src/examples/phase_oblique_reflecting_x_12x12.yaml
+python src/algorithm/compare.py --config src/examples/phase_oblique_reflecting_x_16x16.yaml
 ```
 
 默认会打开一个总 loss 面板；全部所选算法都会占用一个子图，算法数增加时自动增加行列，并将结果写入：
 
 ```text
-outputs/algs/phase_oblique_reflecting_x_12x12/
+outputs/algs/phase_oblique_reflecting_x_16x16/
   summary.csv
   summary.json
   loss_dashboard.png
   <algorithm>/config.yaml
   <algorithm>/result.npz
+  <algorithm>/result_best_phases_rad.npy
+  <algorithm>/result_final_phases_rad.npy
+  <algorithm>/result_phase_export.json
   <algorithm>/result_loss.png
 ```
 
-`--algorithms adjoint,gabs,spsa` 可只运行指定算法；`--no-loss-window` 用于无图形界面的批处理。SAC、PPO、CMA-ES 需要先安装 `src/baselines/requirements.txt` 中的可选依赖。
+每次 `phase_optimization` 还会在 `result.npz` 同目录保存两个独立连续相位向量：
+
+- `*_best_phases_rad.npy`：推荐使用的最优已评估相位。
+- `*_final_phases_rad.npy`：优化停止时的最后一步相位。
+- `*_phase_export.json`：相位单位、阵元数量、目标点、loss 和文件关联。
+
+这些文件的相位单位均为 `rad`，仍是未校准、未量化的 solver 输出；在发送到 SonicSurface 前必须经过 `src/hardware/` 中的通道映射、校准和 32 级相位量化。
+
+硬件接入使用本地 loopback 服务，而非让优化进程直接访问串口。服务默认 dry-run，仅监听 `127.0.0.1`；详细启动和发送方式见 [`hardware/README.md`](hardware/README.md)。
+
+`--algorithms adjoint,gabs,spsa` 可只运行指定算法；`--no-loss-window` 用于无图形界面的批处理。SAC、PPO、CMA-ES 需要先安装 `src/algorithm/baselines/requirements.txt` 中的可选依赖。
 
 默认每种迭代算法有相同的 `60 s` 墙钟时间上限；`--max-seconds 120` 可覆盖该比较预算。`iterations` 和 `max_evaluations` 只是各算法的安全上限，汇总表以实际用时、场评估数、VJP 数和 best loss 为准。
 
 比较过程还会写入 TensorBoard 标量事件，不会自动打开或抢占浏览器。查看全部算法的交互式 loss 曲线：
 
 ```powershell
-tensorboard --logdir outputs/algs/phase_oblique_reflecting_x_12x12/tensorboard
+tensorboard --logdir outputs/algs/phase_oblique_reflecting_x_16x16/tensorboard
 ```
 
 浏览已完成算法的三维振幅场：
 
 ```powershell
-python src/compare_visualizer.py outputs/algs/phase_oblique_reflecting_x_12x12
+python src/algorithm/compare_visualizer.py outputs/algs/phase_oblique_reflecting_x_16x16
 ```
 
 主视图的 `Algorithm index` 滑条切换算法，`Iso percentile` 滑条调节等值面阈值；原生下拉菜单可切换最终场、最佳已评估场、初始场和几何相位场。
@@ -174,7 +187,7 @@ algorithm_options:
 - `spsa`: `learning_rate`、`perturbation`、`alpha`、`gamma`。
 - `cmaes`: `sigma`、`population_size`；需要可选依赖。
 - `lshade`: 成功历史自适应 Differential Evolution；`population_size` 为初始种群，`min_population_size` 为线性缩减后的下限，`memory_size` 为成功参数记忆长度，`p_best_rate` 为 current-to-pbest 候选比例。`convergence_patience` 与 `convergence_relative_tolerance` 控制连续代际相对改善不足时的收敛判断，默认连续 25 代相对改善不超过 `2e-4` 时停止。只访问标量损失，不使用解析梯度。
-- `sac`、`ppo`: `episode_steps`、`evaluation_steps`、`action_scale`、`reward_scale`、`total_timesteps`、`checkpoint`、`run_mode` 等；需要可选依赖，完整参数见 `src/baselines/requirements.txt` 和 `docs/BASELINE_COMPARISON_PLAN.md`。
+- `sac`、`ppo`: `episode_steps`、`evaluation_steps`、`action_scale`、`reward_scale`、`total_timesteps`、`checkpoint`、`run_mode` 等；需要可选依赖，完整参数见 `src/algorithm/baselines/requirements.txt` 和 `src/examples/algorithms/README.md`。
 
 ### `boundary_conditions`
 

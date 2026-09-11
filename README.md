@@ -26,14 +26,16 @@ u(phi) = G exp(i phi)
 ```text
 src/
   README.md                  代码运行说明和 config 参数定义
-  main.py                    主入口：相位优化、同相位和预留 SDF 反演模式
-  visualizer.py              PyVista 交互式可视化入口
-  config.py                  YAML 配置解析
+  main.py                    顶层入口：编排算法与后续硬件部署
+  algorithm/                 数值声学建模、相位优化与可视化
+    config.py                YAML 配置解析
+    physics/                 换能器、SDF、矩阵和 RHS 装配
+    solvers/                 Helmholtz 线性系统求解后端
+    training/                响应基、目标场、loss 和梯度公式
+    baselines/               可选相位算法及统一评估接口
+    compare.py               批量算法对比入口
+  hardware/                  阵列协议、映射、校准与安全上传适配器
   examples/                  默认配置和可复现实验配置
-  solvers/                   Helmholtz 线性系统求解后端
-  physics/                   换能器、SDF、矩阵和 RHS 装配
-  training/                  响应基、目标场、loss 和梯度公式
-  baselines/                 可选相位算法及统一评估接口
 
 docs/
   main.html                  文档总入口
@@ -61,13 +63,13 @@ python src/main.py
 运行远斜向目标点、`+x` 反射边界、传统方法对比示例：
 
 ```powershell
-python src/main.py --config src/examples/phase_oblique_reflecting_x_12x12.yaml
+python src/main.py --config src/examples/phase_oblique_reflecting_x_16x16.yaml
 ```
 
 同屏查看传统几何相位与优化相位结果：
 
 ```powershell
-python src/visualizer.py outputs/phase_oblique_reflecting_x_12x12/result.npz --compare-methods --percentile 95 --hide-source-layers 4
+python src/algorithm/visualizer.py outputs/phase_oblique_reflecting_x_16x16/result.npz --compare-methods --percentile 95 --hide-source-layers 4
 ```
 
 ## 文档
@@ -85,16 +87,17 @@ python src/visualizer.py outputs/phase_oblique_reflecting_x_12x12/result.npz --c
 - [`docs/PHASE_ONLY_TRAINING.html`](docs/PHASE_ONLY_TRAINING.html)：固定场景下的相位响应基训练。
 - [`docs/GRADIENT_DERIVATION.html`](docs/GRADIENT_DERIVATION.html)：振幅 loss 导数、相位 VJP、PDE 伴随梯度和有限差分验证。
 - [`docs/SOLVER_ARCHITECTURE.html`](docs/SOLVER_ARCHITECTURE.html)：求解器架构和模块边界。
-- [`docs/BASELINE_COMPARISON_PLAN.md`](docs/BASELINE_COMPARISON_PLAN.md)：相位算法对比口径、预算和实施状态。
-- [`algorithm_comparison/README.md`](algorithm_comparison/README.md)：12 x 12 斜向反射场景的完整算法对比结果与复现入口。
-- [`gradient_ablation/README.md`](gradient_ablation/README.md)：同一解析梯度下的 L-BFGS-B、Adam、AdamW、Lion 和非线性共轭梯度消融。
+- [`algorithm_comparison/README.md`](algorithm_comparison/README.md)：已完成的 9 种算法对比、质量门槛统计和复现实验入口。
+- [`gradient_ablation/README.md`](gradient_ablation/README.md)：已完成的解析梯度更新器消融、质量门槛统计和复现实验入口。
+- [`docs/HARDWARE_INTEGRATION_PLAN.md`](docs/HARDWARE_INTEGRATION_PLAN.md)：SonicSurface 离线编码、校准与安全上传的实施边界。
+- [`docs/HARDWARE_EXECUTION_MANUAL.md`](docs/HARDWARE_EXECUTION_MANUAL.md)：CoreEP4CE6 从 USB 连接到优化相位下发的完整执行手册。
 
 ## 典型工作流
 
 1. 在 `src/examples/` 中选择或复制一个 YAML 配置。
 2. 设置求解域、阵列规模、障碍物、边界条件和目标点。
 3. 使用 `python src/main.py --config ...` 运行前向求解或 phase-only 优化。
-4. 使用 `src/visualizer.py` 查看 `.npz` 结果文件。
+4. 使用 `src/algorithm/visualizer.py` 查看 `.npz` 结果文件；同目录自动生成推荐部署的 `*_best_phases_rad.npy` 与相位 manifest。
 5. 将可复现实验配置保留在 `src/examples/`，将运行产物保留在 `outputs/`。
 
 ## 产物约定

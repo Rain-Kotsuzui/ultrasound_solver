@@ -183,13 +183,15 @@
     <header>
       <h1>Ultrasound Solver 文档入口</h1>
       <p class="subtitle">
-        这里汇总三维 Helmholtz 超声场求解器的物理推导、离散格式、Mesh-to-SDF、边界凝聚直接法、相位响应基训练和工程架构文档。
+        这里汇总三维 Helmholtz 超声场求解器的物理推导、离散格式、Mesh-to-SDF、边界凝聚、相位优化、已完成实验与硬件接入边界。
       </p>
       <nav class="quick-links" aria-label="quick links">
         <a href="../README.md">项目 README</a>
         <a href="../src/README.md">代码使用说明</a>
         <a href="GRADIENT_DERIVATION.html">梯度推导</a>
-        <a href="BASELINE_COMPARISON_PLAN.md">对比算法计划（Markdown）</a>
+        <a href="../algorithm_comparison/README.md">算法对比结果</a>
+        <a href="HARDWARE_INTEGRATION_PLAN.md">硬件接入计划</a>
+        <a href="HARDWARE_EXECUTION_MANUAL.md">硬件执行手册</a>
       </nav>
     </header>
 
@@ -282,6 +284,42 @@
           <div class="tag-row">
             <span class="tag">gradient</span>
             <span class="tag">adjoint</span>
+          </div>
+        </a>
+
+        <a class="doc-card" href="../algorithm_comparison/README.md">
+          <h3>Algorithm Comparison Results</h3>
+          <p>9 种相位算法在统一场景下的结果、共同质量门槛统计、loss 图和复现方式。</p>
+          <div class="tag-row">
+            <span class="tag">experiment</span>
+            <span class="tag">benchmark</span>
+          </div>
+        </a>
+
+        <a class="doc-card" href="../gradient_ablation/README.md">
+          <h3>Gradient Optimizer Ablation</h3>
+          <p>相同解析 VJP 下的 L-BFGS-B、Adam、AdamW、Lion 与非线性共轭梯度消融结果。</p>
+          <div class="tag-row">
+            <span class="tag">experiment</span>
+            <span class="tag">ablation</span>
+          </div>
+        </a>
+
+        <a class="doc-card" href="HARDWARE_INTEGRATION_PLAN.md">
+          <h3>SonicSurface Integration</h3>
+          <p>相位导出、离线编码、通道映射、校准与真实硬件验证的分阶段要求。</p>
+          <div class="tag-row">
+            <span class="tag">hardware</span>
+            <span class="tag">deployment</span>
+          </div>
+        </a>
+
+        <a class="doc-card" href="HARDWARE_EXECUTION_MANUAL.md">
+          <h3>硬件执行手册</h3>
+          <p>从 USB 串口识别、全关闭确认、诊断图样到优化相位下发的完整操作流程。</p>
+          <div class="tag-row">
+            <span class="tag">hardware</span>
+            <span class="tag">operation</span>
           </div>
         </a>
       </div>

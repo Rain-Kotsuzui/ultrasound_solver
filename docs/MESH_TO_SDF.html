@@ -81,7 +81,7 @@
 
   <h1>Mesh to SDF 使用说明</h1>
 
-  <p class="note">当前 mesh-to-SDF 不是单独的命令行工具，而是通过 YAML 配置中的 <code>obstacles</code> 自动触发。只要障碍物类型设为 <code>mesh</code>，求解器在装配矩阵前会调用 <code>src/physics/mesh_to_sdf.py</code>，把闭合三角网格采样为与求解域同分辨率的 SDF。</p>
+  <p class="note">当前 mesh-to-SDF 不是单独的命令行工具，而是通过 YAML 配置中的 <code>obstacles</code> 自动触发。只要障碍物类型设为 <code>mesh</code>，求解器在装配矩阵前会调用 <code>src/algorithm/physics/mesh_to_sdf.py</code>，把闭合三角网格采样为与求解域同分辨率的 SDF。</p>
 
   <h2>基本流程</h2>
 
@@ -223,7 +223,7 @@ WarpAssemblyEngine.assemble_system_gpu()
 
   <ul>
     <li>先用较低网格分辨率确认 mesh 的 <code>center_m</code>、<code>rotation_deg</code> 和 <code>scale</code> 是否合理。</li>
-    <li>运行结果 `.npz` 中会保存 <code>sdf</code> 字段时，可用 <code>src/visualizer.py</code> 查看障碍物表面。</li>
+    <li>运行结果 `.npz` 中会保存 <code>sdf</code> 字段时，可用 <code>python src/algorithm/visualizer.py</code> 查看障碍物表面。</li>
     <li>如果看不到障碍物，优先检查单位缩放、mesh 是否在求解域内、以及网格是否太粗。</li>
     <li>手部模型侧向伸入时，当前实验约定使用 <code>rotation_deg: [0.0, 90.0, 0.0]</code>。</li>
   </ul>

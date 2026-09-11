@@ -19,11 +19,14 @@ ROOT = Path(__file__).resolve().parents[1]
 os.chdir(ROOT)
 sys.path.insert(0, str(ROOT / "src"))
 
-from baselines import run, validate_algorithm
-from baselines.loss_curve import ComparisonLossDashboard, save_loss_dashboard
-from config import SimulationConfig
+from algorithm.baselines import run, validate_algorithm
+from algorithm.baselines.loss_curve import (
+    ComparisonLossDashboard,
+    save_loss_dashboard,
+)
+from algorithm.config import SimulationConfig
 from main import save_phase_optimization_result
-from solvers.helmholtz_solver import HelmholtzDirectSolver
+from algorithm.solvers.helmholtz_solver import HelmholtzDirectSolver
 
 
 OPTIMIZERS = {
@@ -307,7 +310,7 @@ def main():
         "--config",
         default=str(
             ROOT / "gradient_ablation" / "config"
-            / "phase_oblique_reflecting_x_12x12.yaml"
+            / "phase_oblique_reflecting_x_16x16.yaml"
         ),
     )
     parser.add_argument(

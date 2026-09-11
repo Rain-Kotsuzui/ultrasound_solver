@@ -399,7 +399,7 @@ gradient = real(conjugate(response) * (1j * weights))</code></pre>
 
   <h2>有限差分验证</h2>
 
-  <p>当前 <code>src/baselines/adjoint/</code> 使用中心差分验证相位梯度：</p>
+  <p>当前 <code>src/algorithm/baselines/adjoint/</code> 在启用 <code>gradient_check</code> 时使用中心差分验证相位梯度：</p>
 
   \[
   \frac{\partial L}{\partial\phi_r}
@@ -437,7 +437,7 @@ algorithm_options:
     <tbody>
       <tr>
         <td>目标振幅场与权重</td>
-        <td><code>src/training/phase_adjoint_optimizer.py</code> 中的 <code>AmplitudeTarget</code> 和 <code>build_gaussian_target_fields()</code></td>
+        <td><code>src/algorithm/training/phase_adjoint_optimizer.py</code> 中的 <code>AmplitudeTarget</code> 和 <code>build_gaussian_target_fields()</code></td>
       </tr>
       <tr>
         <td><code>field_match</code> cotangent</td>
@@ -453,19 +453,19 @@ algorithm_options:
       </tr>
       <tr>
         <td>响应基场合成</td>
-        <td><code>src/training/phase_response_basis.py</code> 中的 <code>PhaseResponseBasis.field()</code></td>
+        <td><code>src/algorithm/training/phase_response_basis.py</code> 中的 <code>PhaseResponseBasis.field()</code></td>
       </tr>
       <tr>
         <td>相位 VJP</td>
-        <td><code>src/training/phase_response_basis.py</code> 中的 <code>PhaseResponseBasis.phase_vjp()</code></td>
+        <td><code>src/algorithm/training/phase_response_basis.py</code> 中的 <code>PhaseResponseBasis.phase_vjp()</code></td>
       </tr>
       <tr>
         <td>梯度检查</td>
-        <td><code>PhaseOnlyOptimizer.gradient_check()</code></td>
+        <td><code>src/algorithm/baselines/adjoint/__init__.py</code> 中的中心差分检查路径</td>
       </tr>
       <tr>
         <td>PDE 伴随求解接口</td>
-        <td><code>src/solvers/helmholtz_solver.py</code> 中的 <code>solve_adjoint()</code></td>
+        <td><code>src/algorithm/solvers/helmholtz_solver.py</code> 中的 <code>solve_adjoint()</code></td>
       </tr>
     </tbody>
   </table>

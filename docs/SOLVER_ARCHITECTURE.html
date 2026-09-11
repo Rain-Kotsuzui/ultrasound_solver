@@ -116,31 +116,9 @@
 
   <p>首次矩阵装配同时缓存底面阵元映射。后续相位更新由 <code>WarpAssemblyEngine.assemble_rhs()</code> 直接在有效 Dirichlet 点上用 NumPy <code>complex128</code> 生成复数 RHS，不再遍历整个体网格。</p>
 
-  <h2>训练模式</h2>
+  <h2>Phase-Only 优化路径</h2>
 
-  <table>
-    <thead>
-      <tr>
-        <th>模式</th>
-        <th>矩阵变化</th>
-        <th>前向路径</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><code>phase_optimization</code></td>
-        <td>固定</td>
-        <td>离线构建 \(G=A^{-1}B\)，在线使用 \(u=Ge^{i\phi}\)。</td>
-      </tr>
-      <tr>
-        <td><code>sdf_inverse</code></td>
-        <td>随障碍物参数变化</td>
-        <td>禁止复用固定 \(G\)，每轮重新装配并执行 PDE 前向/伴随。</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <p>训练层不增加新的 solver backend。详细推导、断点缓存和 VJP 见 <a href="PHASE_ONLY_TRAINING.html">PHASE_ONLY_TRAINING.html</a>。</p>
+  <p>当前训练主线保持场景固定，离线构建 \(G=A^{-1}B\)，在线使用 \(u=G e^{i\phi}\) 合成声场并通过 \(G^H\) 计算相位 VJP。详细推导、缓存和 VJP 见 <a href="PHASE_ONLY_TRAINING.html">PHASE_ONLY_TRAINING.html</a>。</p>
 
   <h2>后端选择</h2>
 
@@ -166,7 +144,7 @@
       <tr>
         <td><code>cudss_hybrid_direct</code></td>
         <td>精确凝聚 Dirichlet/Open 边界后，对复对称约化矩阵执行 cuDSS 分解；持久复用 factorization；自动选择 hybrid execute 或 hybrid memory。</td>
-        <td>高性能方法和当前默认。已在 8 GiB GPU 上完成 \(108^3\) 前向和伴随求解。</td>
+        <td>适合需要精确直接求解和因子复用的场景；实际可用规模取决于稀疏结构、GPU 显存与主存。</td>
       </tr>
     </tbody>
   </table>
@@ -290,54 +268,10 @@ hybrid_register_cuda_memory: false</code></pre>
 
   <p>所以伴随约化系统通过“共轭 RHS、使用同一因子求解、共轭结果”完成，再对 \(A_{EE}^H\) 做边界回代。前向和伴随不再各保存一份大型 cuDSS 因子。</p>
 
-  <h2>实测结果</h2>
+  <h2>分辨率与资源边界</h2>
 
-  <p>测试设备为 NVIDIA GeForce RTX 4070 Laptop GPU 8 GiB，数值类型为 <code>complex128</code>。</p>
+  <p>当前公开优化结果使用 \(41^3\) 网格作为算法原型，约为 2.86 点/波长；它不足以单独支撑严格物理结论。应使用更高分辨率复算最终相位场，或以该相位作为 warm start 做少量高分辨率 Adam 精修。</p>
 
-  <table>
-    <thead>
-      <tr>
-        <th>网格</th>
-        <th>后端/模式</th>
-        <th>首次前向</th>
-        <th>复用前向</th>
-        <th>结果</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>\(31^3\)</td>
-        <td>凝聚复对称 + hybrid execute</td>
-        <td>0.47 s</td>
-        <td>6.1 ms</td>
-        <td>前向残差 \(6.53\times10^{-9}\)，伴随 8.3 ms，残差 \(1.43\times10^{-14}\)。</td>
-      </tr>
-      <tr>
-        <td>\(61^3\)</td>
-        <td>凝聚复对称 + hybrid execute</td>
-        <td>6.85 s</td>
-        <td>46.5 ms</td>
-        <td>前向残差 \(9.09\times10^{-7}\)，伴随 61 ms，残差 \(7.02\times10^{-13}\)。</td>
-      </tr>
-      <tr>
-        <td>\(81^3\)</td>
-        <td>凝聚复对称</td>
-        <td>通过 symbolic 显存预检</td>
-        <td>因子可复用</td>
-        <td>显存需求低于未凝聚的一般 LU；\(108^3\) 已覆盖更大规模验证。</td>
-      </tr>
-      <tr>
-        <td>\(108^3\)</td>
-        <td>凝聚复对称 + hybrid memory</td>
-        <td>427.33 s</td>
-        <td>14.10 s</td>
-        <td>前向残差 \(2.69\times10^{-6}\)，伴随 8.15 s，残差 \(3.36\times10^{-12}\)。</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <p class="note">在 \(108^3\) 上，一般非对称 LU 的 HMM 最低显存约为 9.91 GiB；精确边界凝聚后的复对称分解将最低值降至约 5.46 GiB。当前配置把 cuDSS 显存限制为 5.6 GiB，实测完成了 numerical factorization、两次前向和一次伴随。</p>
-
-  <p class="warn">\(108^3\) 的约化因子仍需要约 18.63 GiB 主存。测试时其他应用占用了大量物理内存，Windows 发生页面交换，因此首次 427 秒主要受主存压力影响。运行大规模分解前关闭高内存应用，或者增加系统内存，可明显改善首次 factorization/solve 时间。</p>
+  <p class="warn">直接法的因子和响应基都可能成为显存或主存瓶颈。开始高分辨率实验前，应以实际网格、阵元数量、可用 GPU 显存和主存进行预检；不要把某台机器的历史耗时或容量当作通用上限。</p>
 
 </div>

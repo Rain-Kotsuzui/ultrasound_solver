@@ -2,7 +2,7 @@
 # same_phase: 所有阵元固定 same_phase_rad，用于前向敏感性实验
 # sdf_inverse: 预留的 SDF 反演入口（尚未实现）
 mode: "phase_optimization"
-algorithm: "adjoint"         # adjoint / geometric / response_alignment / gabs / spsa / sac / ppo / cmaes
+algorithm: "adjoint"         # adjoint / geometric / response_alignment / gabs / spsa / lshade / sac / ppo / cmaes
 algorithm_options:
   optimizer: "adam"          # 仅 algorithm: adjoint 使用
   learning_rate: 0.05
@@ -21,7 +21,7 @@ transducer_specs:
   spl_distance: 0.3          # 标定测试距离 (m), 0.3m (30cm)
   diameter: 0.01           # 换能器有效振动直径 D (m), 10mm
   pitch: 0.01              # 阵元中心间距 (m), 10mm
-  array_n: 9               
+  array_n: 16
 
 # 3. 计算区域与空间离散网格
 domain:

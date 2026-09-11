@@ -25,7 +25,7 @@ python src/main.py --config src/examples/algorithms/spsa.yaml
 SAC、PPO、CMA-ES 需要可选依赖；L-SHADE 仅依赖 NumPy：
 
 ```powershell
-python -m pip install -r src/baselines/requirements.txt
+python -m pip install -r src/algorithm/baselines/requirements.txt
 ```
 
 SAC/PPO 的 `run_mode: "train"` 会训练并保存策略；改为 `run_mode: "evaluate"` 时，会加载同一 `checkpoint`，并校验场景任务指纹和环境参数。策略训练时间与测试时相位调整时间会分别写入结果元数据。
