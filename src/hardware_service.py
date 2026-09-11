@@ -1,7 +1,7 @@
-"""Start the local SonicSurface hardware service."""
+"""启动持有串口的本地 Ultraino SimpleFPGA 服务。"""
 
-from hardware.sonicsurface.service import main
+from hardware.ultraino import service_main
 
 
 if __name__ == "__main__":
-    main()
+    service_main()

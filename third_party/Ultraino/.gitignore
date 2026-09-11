@@ -1,0 +1,7 @@
+/AcousticFieldSim/nbproject/private/
+/AcousticFieldSim/build/
+/AcousticFieldSim/nbproject/private
+config.ini.xml
+*.log
+*.DS_Store
+/AcousticFieldSim/dist/

@@ -89,8 +89,7 @@ python src/algorithm/visualizer.py outputs/phase_oblique_reflecting_x_16x16/resu
 - [`docs/SOLVER_ARCHITECTURE.html`](docs/SOLVER_ARCHITECTURE.html)：求解器架构和模块边界。
 - [`algorithm_comparison/README.md`](algorithm_comparison/README.md)：已完成的 9 种算法对比、质量门槛统计和复现实验入口。
 - [`gradient_ablation/README.md`](gradient_ablation/README.md)：已完成的解析梯度更新器消融、质量门槛统计和复现实验入口。
-- [`docs/HARDWARE_INTEGRATION_PLAN.md`](docs/HARDWARE_INTEGRATION_PLAN.md)：SonicSurface 离线编码、校准与安全上传的实施边界。
-- [`docs/HARDWARE_EXECUTION_MANUAL.md`](docs/HARDWARE_EXECUTION_MANUAL.md)：CoreEP4CE6 从 USB 连接到优化相位下发的完整执行手册。
+- [`src/hardware/README.md`](src/hardware/README.md)：Ultraino/AcousticField 标定结果与本地 S/C 硬件服务的接入方式。
 
 ## 典型工作流
 

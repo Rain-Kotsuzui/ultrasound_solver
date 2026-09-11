@@ -1,0 +1,14 @@
+# 复制为私有配置后，从 AcousticField 的已标定阵列设置填入映射和相位修正。
+schema_version: 1
+name: "ultraino-simple-fpga-unverified"
+serial:
+  port: null
+  baudrate: 230400
+
+# 对应 Ultraino Transducer.orderNumber。默认仅用于 dry-run。
+solver_to_ultraino_order: "identity"
+
+# 对应 AcousticField Transducer.phaseCorrection，单位为 pi rad。
+# 标定完成后填入 256 项数据，再把 calibration_verified 改为 true。
+phase_corrections_pi: "zeros"
+calibration_verified: false

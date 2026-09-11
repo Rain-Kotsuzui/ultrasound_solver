@@ -227,7 +227,7 @@ class BaselineTests(unittest.TestCase):
             self.assertGreater(curve.stat().st_size, 1000)
             self.assertGreater(dashboard.stat().st_size, 1000)
 
-    def test_phase_artifacts_are_saved_for_hardware_export(self):
+    def test_phase_artifacts_are_saved_for_hardware_deployment(self):
         from main import save_phase_artifacts
 
         cfg = config()

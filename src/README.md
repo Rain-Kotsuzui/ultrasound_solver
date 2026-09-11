@@ -72,7 +72,7 @@ outputs/algs/phase_oblique_reflecting_x_16x16/
 - `*_final_phases_rad.npy`：优化停止时的最后一步相位。
 - `*_phase_export.json`：相位单位、阵元数量、目标点、loss 和文件关联。
 
-这些文件的相位单位均为 `rad`，仍是未校准、未量化的 solver 输出；在发送到 SonicSurface 前必须经过 `src/hardware/` 中的通道映射、校准和 32 级相位量化。
+这些文件的相位单位均为 `rad`，仍是未校准、未量化的 solver 输出；发送前必须使用 AcousticField 的已标定通道顺序和相位修正，由 `src/hardware/` 的 Ultraino 服务量化并下发。
 
 硬件接入使用本地 loopback 服务，而非让优化进程直接访问串口。服务默认 dry-run，仅监听 `127.0.0.1`；详细启动和发送方式见 [`hardware/README.md`](hardware/README.md)。
 
