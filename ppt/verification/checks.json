@@ -79,6 +79,102 @@
       ],
       "slide": 7,
       "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1600,
+        900
+      ],
+      "slide": 8,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1600,
+        900
+      ],
+      "slide": 9,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1600,
+        900
+      ],
+      "slide": 10,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1600,
+        900
+      ],
+      "slide": 11,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1600,
+        900
+      ],
+      "slide": 12,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1600,
+        900
+      ],
+      "slide": 13,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1600,
+        900
+      ],
+      "slide": 14,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1600,
+        900
+      ],
+      "slide": 15,
+      "issues": [],
       "chartTicks": [
         {
           "text": "Adam1.4689",
@@ -122,7 +218,19 @@
         1600,
         900
       ],
-      "slide": 8,
+      "slide": 16,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1600,
+        900
+      ],
+      "slide": 17,
       "issues": [],
       "chartTicks": [],
       "ratio": 1.7777777777777777,
@@ -208,6 +316,102 @@
       ],
       "slide": 7,
       "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1.2,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "slide": 8,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1.2,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "slide": 9,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1.2,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "slide": 10,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1.2,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "slide": 11,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1.2,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "slide": 12,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1.2,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "slide": 13,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1.2,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "slide": 14,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1.2,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "slide": 15,
+      "issues": [],
       "chartTicks": [
         {
           "text": "Adam1.4689",
@@ -251,7 +455,19 @@
         1920,
         1080
       ],
-      "slide": 8,
+      "slide": 16,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1.2,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "slide": 17,
       "issues": [],
       "chartTicks": [],
       "ratio": 1.7777777777777777,
@@ -337,6 +553,102 @@
       ],
       "slide": 7,
       "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777779897054036,
+      "scale": 0.8533334350585937,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "slide": 8,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777779897054036,
+      "scale": 0.8533334350585937,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "slide": 9,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777779897054036,
+      "scale": 0.8533334350585937,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "slide": 10,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777779897054036,
+      "scale": 0.8533334350585937,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "slide": 11,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777779897054036,
+      "scale": 0.8533334350585937,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "slide": 12,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777779897054036,
+      "scale": 0.8533334350585937,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "slide": 13,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777779897054036,
+      "scale": 0.8533334350585937,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "slide": 14,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777779897054036,
+      "scale": 0.8533334350585937,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "slide": 15,
+      "issues": [],
       "chartTicks": [
         {
           "text": "Adam1.4689",
@@ -380,7 +692,19 @@
         1366,
         768
       ],
-      "slide": 8,
+      "slide": 16,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777779897054036,
+      "scale": 0.8533334350585937,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "slide": 17,
       "issues": [],
       "chartTicks": [],
       "ratio": 1.7777779897054036,
@@ -466,6 +790,102 @@
       ],
       "slide": 7,
       "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 0.24375,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "slide": 8,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 0.24375,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "slide": 9,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 0.24375,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "slide": 10,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 0.24375,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "slide": 11,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 0.24375,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "slide": 12,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 0.24375,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "slide": 13,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 0.24375,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "slide": 14,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 0.24375,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "slide": 15,
+      "issues": [],
       "chartTicks": [
         {
           "text": "Adam1.4689",
@@ -509,7 +929,19 @@
         390,
         844
       ],
-      "slide": 8,
+      "slide": 16,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 0.24375,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "slide": 17,
       "issues": [],
       "chartTicks": [],
       "ratio": 1.7777777777777777,
@@ -595,6 +1027,102 @@
       ],
       "slide": 7,
       "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777775691105768,
+      "scale": 0.43333328247070313,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        844,
+        390
+      ],
+      "slide": 8,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777775691105768,
+      "scale": 0.43333328247070313,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        844,
+        390
+      ],
+      "slide": 9,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777775691105768,
+      "scale": 0.43333328247070313,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        844,
+        390
+      ],
+      "slide": 10,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777775691105768,
+      "scale": 0.43333328247070313,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        844,
+        390
+      ],
+      "slide": 11,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777775691105768,
+      "scale": 0.43333328247070313,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        844,
+        390
+      ],
+      "slide": 12,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777775691105768,
+      "scale": 0.43333328247070313,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        844,
+        390
+      ],
+      "slide": 13,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777775691105768,
+      "scale": 0.43333328247070313,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        844,
+        390
+      ],
+      "slide": 14,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777775691105768,
+      "scale": 0.43333328247070313,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        844,
+        390
+      ],
+      "slide": 15,
+      "issues": [],
       "chartTicks": [
         {
           "text": "Adam1.4689",
@@ -638,7 +1166,19 @@
         844,
         390
       ],
-      "slide": 8,
+      "slide": 16,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777775691105768,
+      "scale": 0.43333328247070313,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        844,
+        390
+      ],
+      "slide": 17,
       "issues": [],
       "chartTicks": [],
       "ratio": 1.7777775691105768,
@@ -647,12 +1187,6 @@
     }
   ],
   "console_errors": [],
-  "canvas_pixels": [
-    {
-      "id": "cover-field",
-      "nonblank": 229279
-    }
-  ],
   "external_requests": [],
   "interaction_checks": "passed"
 }

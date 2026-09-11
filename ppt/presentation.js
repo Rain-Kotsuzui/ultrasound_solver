@@ -6,6 +6,14 @@ const data = window.DEFENSE_EVIDENCE;
 const stage = document.getElementById("stage");
 const notesDialog = document.getElementById("notes-dialog");
 const overviewDialog = document.getElementById("overview-dialog");
+const chapterLabels = {
+  overview: "目录",
+  context: "01 / 背景与问题",
+  method: "02 / 建模与算法",
+  evidence: "03 / 数值证据",
+  hardware: "04 / 实物闭环",
+  closing: "05 / 结论",
+};
 let current = 0;
 let controlsTimer;
 let touchStart = null;
@@ -66,79 +74,6 @@ async function fullscreen() {
   } catch (_) { toast("全屏请求未获允许，请使用浏览器自身的全屏功能。"); }
 }
 
-function canvasContext(id, width, height, ratio = 2) {
-  const canvas = document.getElementById(id);
-  canvas.width = width * ratio;
-  canvas.height = height * ratio;
-  const ctx = canvas.getContext("2d");
-  ctx.scale(ratio, ratio);
-  return ctx;
-}
-
-function drawCover(field) {
-  const ctx = canvasContext("cover-field", 1600, 900);
-  const area = {x: 766, y: 165, w: 727, h: 430};
-  const px = value => area.x + value / 120 * area.w;
-  const py = value => area.y + (120 - value) / 108 * area.h;
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(area.x, area.y, area.w, area.h);
-  ctx.clip();
-  for (const path of field.contours) {
-    ctx.beginPath();
-    path.points.forEach(([x, z], i) => i ? ctx.lineTo(px(x), py(z)) : ctx.moveTo(px(x), py(z)));
-    ctx.strokeStyle = path.level >= .5 ? "#304cd2" : path.level >= .25 ? "#7791b3" : "#d3dce7";
-    ctx.lineWidth = path.level >= .5 ? 2 : 1.2;
-    ctx.stroke();
-  }
-  ctx.restore();
-  ctx.strokeStyle = "#7d899b";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(area.x + area.w, area.y);
-  ctx.lineTo(area.x + area.w, area.y + area.h);
-  ctx.stroke();
-  ctx.fillStyle = "#707a89";
-  ctx.font = '17px "Microsoft YaHei"';
-  ctx.fillText("反射边界", area.x + area.w - 85, area.y - 12);
-  const x = px(field.target_mm[0]), y = py(field.target_mm[2]);
-  cross(ctx, x, y, "#bf4938", 10);
-  const label = document.querySelector(".cover-annotation");
-  label.style.left = `${x + 18}px`;
-  label.style.top = `${y - 33}px`;
-}
-
-function cross(ctx, x, y, color, radius = 8) {
-  ctx.strokeStyle = "#fcfcfd";
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.moveTo(x - radius, y); ctx.lineTo(x + radius, y);
-  ctx.moveTo(x, y - radius); ctx.lineTo(x, y + radius);
-  ctx.stroke();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  ctx.stroke();
-}
-
-function loadEffectImages() {
-  for (const [key, id] of [["baseline", "baseline-effect"], ["ours", "ours-effect"]]) {
-    const path = window.DEFENSE_MEDIA?.[key];
-    if (!path) continue;
-    const slot = document.getElementById(id);
-    const image = new Image();
-    image.alt = key === "ours" ? "我们的方法：用户提供的效果图" : "忽略障碍物建模的 baseline：用户提供的效果图";
-    image.onload = () => {
-      slot.replaceChildren(image);
-      slot.classList.add("loaded");
-    };
-    image.onerror = () => {
-      slot.querySelector(".slot-label").textContent = "效果图加载失败";
-      toast(`无法加载 ${key} 效果图，请核对 media.js 中的路径。`);
-    };
-    image.src = path;
-  }
-}
-
 function metricChart(id, records, threshold, names, limit, ticks) {
   const root = document.getElementById(id);
   root.innerHTML = '<div class="metric-header"><span>方法</span><span>首次达标时间</span><span>秒</span><span>评估次数</span></div>';
@@ -172,7 +107,6 @@ function metricChart(id, records, threshold, names, limit, ticks) {
 
 function renderEvidence() {
   if (!data) throw new Error("assets/evidence.js did not load");
-  drawCover(data.field);
   metricChart("algorithm-chart", data.algorithms, -1593.498,
     [["adjoint", "Adam"], ["cmaes", "CMA-ES"], ["lshade", "L-SHADE"]], 50, [0, 25, 50]);
   metricChart("ablation-chart", data.ablation, -1860,
@@ -180,17 +114,37 @@ function renderEvidence() {
   const adam = data.algorithms.find(row => row.id === "adjoint" && row.threshold === -1593.498);
   const lshade = data.algorithms.find(row => row.id === "lshade" && row.threshold === -1593.498);
   document.getElementById("speed-ratio").innerHTML = `${(lshade.seconds / adam.seconds).toFixed(1)}<span>×</span>`;
+  const comparison = data.field.comparison;
+  document.getElementById("geometric-target").textContent =
+    Math.round(comparison.geometric_target_pa).toLocaleString("en-US");
+  document.getElementById("optimized-target").textContent =
+    Math.round(comparison.optimized_target_pa).toLocaleString("en-US");
+  document.getElementById("target-gain").textContent =
+    `${(comparison.optimized_target_pa / comparison.geometric_target_pa).toFixed(1)}×`;
+  document.getElementById("geometric-contrast").textContent =
+    comparison.geometric_contrast.toFixed(2);
+  document.getElementById("optimized-contrast").textContent =
+    comparison.optimized_contrast.toFixed(2);
+  document.getElementById("contrast-gain").textContent =
+    `${(comparison.optimized_contrast / comparison.geometric_contrast).toFixed(1)}×`;
 }
 
 slides.forEach((slide, index) => {
+  const number = String(index + 1).padStart(2, "0");
   slide.querySelector(".page-number").textContent =
-    `${String(index + 1).padStart(2, "0")} / ${String(slides.length).padStart(2, "0")}`;
+    `${number} / ${String(slides.length).padStart(2, "0")}`;
+  slide.setAttribute("aria-label", `第 ${index + 1} 页：${slide.dataset.title}`);
+  const sectionNumber = slide.querySelector(".section-label b");
+  if (sectionNumber) sectionNumber.textContent = number;
+  const runningTitle = slide.querySelector(".running-title");
+  if (runningTitle && chapterLabels[slide.dataset.chapter]) {
+    runningTitle.textContent = chapterLabels[slide.dataset.chapter];
+  }
   const li = document.createElement("li"), button = document.createElement("button");
-  button.innerHTML = `<span>${String(index + 1).padStart(2, "0")}</span>${slide.dataset.title}`;
+  button.innerHTML = `<span>${number}</span>${slide.dataset.title}`;
   button.addEventListener("click", () => { overviewDialog.close(); show(index); });
   li.append(button); document.getElementById("overview-list").append(li);
 });
-for (let i = 0; i < 256; i++) document.getElementById("array-drawing").append(document.createElement("span"));
 document.getElementById("previous").addEventListener("click", () => show(current - 1));
 document.getElementById("next").addEventListener("click", () => show(current + 1));
 document.getElementById("overview-button").addEventListener("click", () => overviewDialog.showModal());
@@ -229,8 +183,14 @@ document.addEventListener("touchstart", showControls, {passive: true});
 window.addEventListener("beforeprint", renderEvidence);
 window.lucide?.createIcons();
 fit();
-show(/^[1-9]$/.test(location.hash.slice(1)) ? Number(location.hash.slice(1)) - 1 : 0);
-loadEffectImages();
+const requestedSlide = Number(location.hash.slice(1));
+show(
+  Number.isInteger(requestedSlide)
+    && requestedSlide >= 1
+    && requestedSlide <= slides.length
+    ? requestedSlide - 1
+    : 0,
+);
 try { renderEvidence(); } catch (error) { console.error(error); toast("数值素材未能加载，请保持 assets 文件夹与 HTML 同目录。"); }
 document.fonts.ready.then(renderEvidence).catch(console.error);
 showControls();

@@ -9,6 +9,7 @@ import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.colors import Normalize
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -67,6 +68,77 @@ def main():
             "optimized": (optimized / common_max).round(6).tolist(),
             "geometric": (geometric / common_max).round(6).tolist(),
             "contours": paths,
+        }
+        geometric_metrics = json.loads(str(result["geometric_metrics"]))
+        best_metrics = json.loads(str(result["run_metadata"]))["best_metrics"]
+
+        figure, axes = plt.subplots(1, 2, figsize=(10.8, 4.25), constrained_layout=True)
+        norm = Normalize(vmin=0.0, vmax=common_max)
+        extent = [float(x[0]), float(x[-1]), float(z[0]), float(z[-1])]
+        for axis, values, title in [
+            (axes[0], geometric, "Geometric phase"),
+            (axes[1], optimized, "Physics-aware optimization"),
+        ]:
+            image = axis.imshow(
+                values,
+                origin="lower",
+                extent=extent,
+                cmap="magma",
+                norm=norm,
+                interpolation="bilinear",
+                aspect="auto",
+            )
+            axis.scatter(
+                [target[0] * 1000],
+                [target[2] * 1000],
+                marker="+",
+                s=150,
+                linewidths=2.2,
+                color="#39ffb6",
+            )
+            axis.set_title(title, fontsize=14)
+            axis.set_xlabel("x (mm)")
+            axis.set_ylabel("z (mm)")
+        colorbar = figure.colorbar(image, ax=axes, shrink=0.86, pad=0.03)
+        colorbar.set_label("Pressure amplitude (Pa)")
+        figure.savefig(
+            ROOT / "ppt/assets/field_comparison.png",
+            dpi=180,
+            facecolor="white",
+        )
+        plt.close(figure)
+
+        figure = plt.figure(figsize=(16, 9), dpi=120, facecolor="#080811")
+        axis = figure.add_axes([0, 0, 1, 1])
+        axis.imshow(
+            optimized,
+            origin="lower",
+            extent=extent,
+            cmap="magma",
+            norm=norm,
+            interpolation="bicubic",
+            aspect="auto",
+        )
+        axis.scatter(
+            [target[0] * 1000],
+            [target[2] * 1000],
+            marker="+",
+            s=520,
+            linewidths=4.0,
+            color="#55ffd0",
+        )
+        axis.set_axis_off()
+        figure.savefig(
+            ROOT / "ppt/assets/optimized_field_hero.png",
+            dpi=120,
+            facecolor=figure.get_facecolor(),
+        )
+        plt.close(figure)
+        field["comparison"] = {
+            "geometric_target_pa": float(geometric_metrics["target_mean"]),
+            "optimized_target_pa": float(best_metrics["target_mean"]),
+            "geometric_contrast": float(geometric_metrics["contrast"]),
+            "optimized_contrast": float(best_metrics["contrast"]),
         }
     data = {
         "algorithm_source": (ALGORITHMS / "quality_summary.csv").relative_to(ROOT).as_posix(),

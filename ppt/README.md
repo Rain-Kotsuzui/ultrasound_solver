@@ -2,67 +2,66 @@
 
 正式入口：[index.html](index.html)。
 
-可直接用 Edge 或 Chrome 打开，不需要启动服务器，不依赖网络。保持 `presentation.css`、`presentation.js`、`media.js` 和 `assets/` 与 HTML 同目录。
+可直接用 Edge 或 Chrome 打开，不需要启动服务器，不依赖网络。保持 `presentation.css`、`presentation.js` 和 `assets/` 与 HTML 同目录。
 
-备用投影文件：[defense_5min.pdf](defense_5min.pdf)。PDF 为八页固定 16:9 画幅，不含控制栏和演讲备注。
+备用投影文件：[defense_5min.pdf](defense_5min.pdf)。PDF 为十七页固定 16:9 画幅，不含控制栏和演讲备注。
 
 ## 内容
 
 | 页 | 主题 | 建议时长 |
 | --- | --- | --- |
-| 1 | 问题与主张 | 20 秒 |
-| 2 | 三维 Helmholtz 求解器与边界凝聚 | 45 秒 |
-| 3 | 响应基、目标函数与伴随 VJP | 60 秒 |
-| 4 | 我们的方法与忽略障碍物 baseline 的效果对比（待补图） | 30 秒 |
-| 5 | 原始算法 Loss 对比图（九种方法） | 30 秒 |
-| 6 | 原始优化器消融 Loss 曲线（五种更新器） | 25 秒 |
-| 7 | 共同质量门槛的数值比较 | 40 秒 |
-| 8 | 16 × 16 硬件部署及结论 | 25 秒 |
+| 1 | 项目首页与核心主张 | 15 秒 |
+| 2 | 章节目录 | 10 秒 |
+| 3 | XR、遥操作、医疗与空间引导 | 20 秒 |
+| 4 | 可编程超声场的技术基础 | 15 秒 |
+| 5 | 复杂环境声场控制的相关工作 | 15 秒 |
+| 6 | 从场景到硬件的技术路线 | 10 秒 |
+| 7 | 三维 Helmholtz 求解器与边界凝聚 | 25 秒 |
+| 8 | COMSOL 独立交叉验证 | 20 秒 |
+| 9 | \(B\)、\(G\) 与响应基的分批构建 | 25 秒 |
+| 10 | 复声场梯度 \(c\) 的定义与来源 | 15 秒 |
+| 11 | VJP 与全部阵元相位梯度 | 20 秒 |
+| 12 | 几何相位与物理优化的声场对比 | 15 秒 |
+| 13 | 原始算法 Loss 对比图 | 15 秒 |
+| 14 | 更新器消融 Loss 曲线 | 15 秒 |
+| 15 | 共同质量门槛的数值比较 | 20 秒 |
+| 16 | SonicSurface 实物与相位标定 | 30 秒 |
+| 17 | 结论与下一步 | 15 秒 |
 
-合计 4 分 35 秒，预留 25 秒缓冲。每页均附中文演讲备注。
+合计 5 分钟。每页均附中文演讲备注。
 
 ## 演示操作
 
 - 左右方向键、PageUp / PageDown：翻页；空格：下一页。
-- `1` 至 `8`：直接跳转；Home / End：首页 / 末页。
+- `1` 至 `9`：直接跳转到对应页；第 10–17 页可用方向键或目录进入；Home / End：首页 / 末页。
 - `F`：全屏或退出全屏。
 - `N`：查看当前页讲稿；`O`：章节目录；Esc：关闭弹窗。
 - 移动鼠标显示底部图标工具栏。打印图标可重新导出 PDF。
 - 触屏支持左右滑动。窄屏按固定比例缩放，不重新排列幻灯片。
 
-## 数据与表述边界
+## 素材与数据
 
-1. 第一页等幅线从归档 `adjoint/result.npz` 提取。不是 COMSOL 图片或实测数据。
-2. 封面切面为 `y = 90 mm`，显示 `z ≥ 12 mm`。原型为 12 × 12 阵列、41³ 网格、+x 反射，无障碍物。不得当成障碍物实验证据。第四页已留空，等待真实效果对比图。
-3. 第七页左图读取算法比较的 `quality_summary.csv`，统一门槛为 `−1593.498`；右图读取独立消融的 `quality_summary.csv`，统一门槛为 `−1860`。秒数不能在两组独立实验之间直接混用。
-4. 图中加速比由未四舍五入的原始秒数计算。数据为归档单次、单场景、单种子结果；没有多次重复统计，因此不画虚构误差棒、不声称普遍最优。
-5. 场评估次数指响应基场合成及目标计算，不等同于每次重新求解一次大型 PDE。时间取自优化日志，不含响应基构建，也不代表陌生场景端到端时延。
-6. 项目已开展 COMSOL 验证，但当前未提供原始对照图和定量统计。因此第四页列出核验口径，不给出虚构误差。最终答辩前应补充相同坐标、单位和激励下的实际对照。
-7. 实物阵列已具备；标定与声场闭环尚未完成。第八页只画明确标注的阵列拓扑示意，不使用生成照片冒充装置。
-8. 相位梯度采用代码约定 `dL = Re(gᴴ du)`，正确表达为 `Im(conj(z) ⊙ (Gᴴg))`。旧大纲的负号已同步修正。
-9. 第五、六页直接使用归档 `loss_dashboard.png` 的完整副本，没有裁切图例、坐标或重画曲线。横轴为场评估次数；实线是当前损失的滑动中位数，虚线是历史最优值，浅线是原始损失。它们不是多随机种子均值或置信区间。
-
-## 放入效果图
-
-第四页左侧为现有 baseline，右侧为我们的方法。默认 `media.js` 中两项为空，不请求不存在的图片，也不生成替代效果图。
-
-将自己的两幅图片放到 `ppt/assets/` 的合适子目录，然后在 [media.js](media.js) 中填写相对路径，例如：
-
-```javascript
-window.DEFENSE_MEDIA = window.DEFENSE_MEDIA || {
-  baseline: "assets/effects/baseline.png",
-  ours: "assets/effects/ours.png",
-};
-```
-
-刷新 HTML 后会自动填入左右预留区，以 `object-fit: contain` 完整显示，不裁剪或拉伸。留空仍显示“效果图待补”；错误路径会显示加载失败。
-
-对比必须让两组相位在同一个含障碍物场景中复算或实测。所谓“无障碍物方法”指 baseline 在求相位时不建模障碍物，不能直接把无障碍物的评估结果与含障碍物的结果混比。具体 baseline 名称、边界条件、激励幅值、单位、坐标、色标以及测量/仿真来源，应随图补充。
-
-补图后 PDF 不会自动变化，需要重新运行 `python ppt/verify_presentation.py` 或在浏览器中打印。
+1. 首页和第十六页使用项目实拍图 `实物照片.JPG` 的演示版裁切。
+2. 第十六页使用 `相位对齐调试.png` 展示 AcousticField 中的相位标定过程。
+3. 第四、五页使用 `ppt_ref/` 中整理的论文原图，并在页脚标明作者、年份和 DOI。
+4. 第八页读取 `comsol_comparison` 的三维场图和跨方法目标对比度统计图。
+5. 第十二页从归档 `adjoint/result.npz` 生成几何相位与物理优化的同切面、同色标对比。
+6. 第十三、十四页使用归档 Loss 曲线；第十五页读取两组 `quality_summary.csv`。
+7. 优化数值实验为 12 × 12、41³ 网格、+x 反射场景；当前硬件平台为 16 × 16 SonicSurface。
 
 ## 原始来源
 
+- [非接触超声触觉](https://doi.org/10.1109/TOH.2010.4)
+- [GS-PAT 多点声场](https://doi.org/10.1145/3386569.3392492)
+- [Diff-PAT 可微声学全息](https://doi.org/10.1038/s41598-021-91880-2)
+- [SonicSurface](https://doi.org/10.3390/app11072981)
+- [中空超声触觉综述](https://doi.org/10.1109/TOH.2020.3018754)
+- [任意散射体声学全息](https://doi.org/10.1126/sciadv.abn7614)
+- [障碍物下声压场重建](https://doi.org/10.1109/TOH.2023.3309975)
+- [手部散射与触觉感知](https://doi.org/10.1145/3706599.3720287)
+- [COMSOL 交叉验证说明](../comsol_comparison/README.md)
+- [COMSOL 正演指标](../comsol_comparison/extended/results/extended_summary.csv)
+- [COMSOL 相位研究指标](../comsol_comparison/phase_study/results/phase_summary.csv)
 - [算法达标统计](../algorithm_comparison/results/phase_oblique_reflecting_x_12x12/quality_summary.csv)
 - [原始算法 Loss 图](../algorithm_comparison/results/phase_oblique_reflecting_x_12x12/loss_dashboard.png)
 - [原始优化器消融 Loss 图](../gradient_ablation/results/phase_oblique_reflecting_x_12x12/loss_dashboard.png)
@@ -85,7 +84,7 @@ python ppt/verify_presentation.py
 
 `build_evidence.py` 依赖 NumPy 和 Matplotlib，仅提取数值与等值线，不重新运行求解器；输出离线数据文件 `assets/evidence.js`。
 
-`verify_presentation.py` 使用 Playwright、Pillow 和本机 Edge，检查五种视窗下全部八页及效果图加载，保存截图、检查报告与 PDF。依赖用于维护，不影响直接打开 HTML。
+`verify_presentation.py` 使用 Playwright、Pillow 和本机 Edge，检查五种视窗下全部十七页及图片加载，保存截图、检查报告与 PDF。依赖用于维护，不影响直接打开 HTML。
 
 `assets/lucide.min.js` 是本地保存的 Lucide 0.468.0 图标库，许可证保存在 `assets/lucide.LICENSE`；没有在线运行时依赖。
 

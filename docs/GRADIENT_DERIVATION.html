@@ -1,13 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>纯相位优化与 PDE 伴随梯度推导</title>
+  <link rel="icon" href="data:,">
+</head>
+<body>
 <div id="gradient-doc">
   <style>
     #gradient-doc {
       max-width: 1060px;
+      min-width: 0;
       margin: 0 auto;
       padding: 28px 34px 64px;
+      overflow-wrap: anywhere;
       color: #1f2933;
       background: #ffffff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       line-height: 1.66;
+    }
+
+    #gradient-doc,
+    #gradient-doc * {
+      box-sizing: border-box;
     }
 
     #gradient-doc h1 {
@@ -37,20 +53,28 @@
     }
 
     #gradient-doc pre {
+      max-width: 100%;
+      min-width: 0;
       padding: 14px 16px;
-      overflow: auto;
+      overflow-x: auto;
+      overflow-y: hidden;
       border-radius: 6px;
       background: #f6f8fa;
     }
 
     #gradient-doc pre code {
+      display: block;
       padding: 0;
+      overflow-wrap: normal;
       background: transparent;
     }
 
     #gradient-doc table {
+      display: block;
       width: 100%;
+      max-width: 100%;
       margin: 14px 0 20px;
+      overflow-x: auto;
       border-collapse: collapse;
     }
 
@@ -77,6 +101,91 @@
       border-left: 4px solid #b45309;
       background: #fff7ed;
     }
+
+    #gradient-doc .summary {
+      padding: 14px 18px;
+      border-left: 4px solid #087f5b;
+      background: #f1fbf7;
+      font-size: 1.06em;
+    }
+
+    #gradient-doc .columns {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin: 18px 0;
+    }
+
+    #gradient-doc .columns article {
+      min-width: 0;
+      padding: 14px 16px;
+      border: 1px solid #d8dee4;
+    }
+
+    #gradient-doc .columns h3 {
+      margin: 0 0 8px;
+      color: #1d4ed8;
+    }
+
+    #gradient-doc .matrix-example {
+      font-size: 16px;
+      line-height: 1.55;
+    }
+
+    #gradient-doc .flow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin: 18px 0;
+      padding: 14px 0;
+      border-top: 1px solid #d8dee4;
+      border-bottom: 1px solid #d8dee4;
+    }
+
+    #gradient-doc .flow strong {
+      color: #087f5b;
+    }
+
+    #gradient-doc .flow > * {
+      min-width: 0;
+    }
+
+    #gradient-doc mjx-container[display="true"] {
+      display: block !important;
+      max-width: 100%;
+      min-width: 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    #gradient-doc figure {
+      margin: 18px 0;
+    }
+
+    #gradient-doc figcaption {
+      margin-top: 8px;
+      color: #5f6c7b;
+      font-size: 14px;
+    }
+
+    @media (max-width: 720px) {
+      #gradient-doc {
+        padding: 22px 18px 48px;
+      }
+
+      #gradient-doc .columns {
+        grid-template-columns: 1fr;
+      }
+
+      #gradient-doc .matrix-example {
+        font-size: 12px;
+      }
+
+      #gradient-doc pre {
+        padding: 12px;
+      }
+    }
   </style>
 
   <script>
@@ -93,6 +202,7 @@
   <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 
   <h1>Gradient Derivation for Phase-Only and PDE Adjoint Optimization</h1>
+  <p>纯相位优化与 PDE 伴随梯度推导</p>
 
   <p class="note">本文档补齐求梯度主线：当前已实现的是固定场景下的相位梯度，使用响应基 \(G=A^{-1}B\) 做解析 VJP；如果未来优化障碍物几何、SDF 或材料参数，则需要使用 PDE 伴随法。</p>
 
@@ -135,11 +245,343 @@
         <td>振幅场。</td>
       </tr>
       <tr>
+        <td>\(c\in\mathbb{C}^{N}\)</td>
+        <td>损失对复声场的 cotangent；等价于把 \(\partial L/\partial\operatorname{Re}(u)\) 和 \(\partial L/\partial\operatorname{Im}(u)\) 合并成一个复向量。</td>
+      </tr>
+      <tr>
         <td>\(L\)</td>
         <td>实值优化目标。</td>
       </tr>
     </tbody>
   </table>
+
+  <h2>先把 \(B\) 说清楚：它是“阵元激励到网格右端”的映射</h2>
+
+  <p class="summary"><strong>一句话：</strong>\(B\) 的第 \(r\) 列表示“只让第 \(r\) 个阵元以配置幅值、零相位工作时，完整 Helmholtz 方程右端 \(b\) 应该填成什么样”。它描述输入放在哪里，不是传播后的声场。</p>
+
+  <div class="columns">
+    <article>
+      <h3>\(A\)：传播规律</h3>
+      <p>网格、介质、障碍物和边界如何耦合所有复声压未知量。</p>
+      <p><code>shape = (N, N)</code></p>
+    </article>
+    <article>
+      <h3>\(B\)：声源输入</h3>
+      <p>每个阵元把固定幅值写到哪些底面 Dirichlet 网格点。</p>
+      <p><code>shape = (N, M)</code></p>
+    </article>
+    <article>
+      <h3>\(G=A^{-1}B\)：全场响应</h3>
+      <p>每个阵元单独工作时，在所有网格点产生的完整复声压。</p>
+      <p><code>shape = (N, M)</code></p>
+    </article>
+  </div>
+
+  <p>其中：</p>
+
+  <ul>
+    <li>\(N=N_xN_yN_z\)：完整三维网格自由度数。</li>
+    <li>\(M\)：阵元数；当前 16×16 阵列有 \(M=256\)。</li>
+    <li>\(P_r\)：第 \(r\) 个阵元的配置声压幅值。</li>
+    <li>\(\phi_r\)：第 \(r\) 个阵元当前相位。</li>
+  </ul>
+
+  <h3>当前 16×16、55³ 配置中的实际形状</h3>
+
+  <pre><code>N = 55 × 55 × 55 = 166375
+M = 16 × 16       = 256
+
+A.shape = (166375, 166375)
+B.shape = (166375, 256)
+G.shape = (166375, 256)
+φ.shape = (256,)
+b.shape = (166375,)
+u.shape = (166375,)</code></pre>
+
+  <p class="note">这里说的是完整离散系统中的概念形状。边界凝聚会在求解器内部把 \(B\) 的每一列转换成约化右端，求解后再恢复全部 \(N\) 个网格点，所以最终保存的 \(G\) 仍是 \(N\times M\)。</p>
+
+  <h3>\(B\) 的一列具体是什么？</h3>
+
+  <p>设底面网格点 \(j\) 被映射到阵元 \(r\)。第 \(r\) 列 \(b_r=B_{:,r}\) 为：</p>
+
+  \[
+  (b_r)_j =
+  \begin{cases}
+  P_r, & \text{网格点 }j\text{ 属于阵元 }r \\
+  0,   & \text{其他网格点}
+  \end{cases}
+  \]
+
+  <p>因此一列中只有该阵元覆盖的底面网格点为 \(P_r\)，其余位置都是零。此时相位为零，所以没有额外的复相位因子：</p>
+
+  \[
+  P_r e^{i\cdot 0}=P_r
+  \]
+
+  <p>其他阵元在这一列的右端激励为零，但它们对应的边界网格点和整个矩阵 \(A\) 仍然存在；不是把其他阵元从几何模型中删除。</p>
+
+  <h3>一个可以直接看懂的小矩阵</h3>
+
+  <p>假设只有 8 个网格自由度和 3 个阵元：</p>
+
+  <pre class="matrix-example"><code>                      阵元 1   阵元 2   阵元 3
+                         ↓        ↓        ↓
+                  ┌                         ┐
+网格点 1          │   P₁       0        0   │  ← 属于阵元 1
+网格点 2          │   P₁       0        0   │  ← 属于阵元 1
+网格点 3          │    0      P₂        0   │  ← 属于阵元 2
+网格点 4          │    0       0       P₃   │  ← 属于阵元 3
+网格点 5          │    0       0       P₃   │  ← 属于阵元 3
+网格点 6          │    0       0        0   │  ← 非声源点
+网格点 7          │    0       0        0   │  ← 非声源点
+网格点 8          │    0       0        0   │  ← 非声源点
+                  └                         ┘
+
+                  B.shape = (8, 3)</code></pre>
+
+  <p>给三个阵元施加相位后，令：</p>
+
+  <pre><code>w = [exp(iφ₁), exp(iφ₂), exp(iφ₃)]ᵀ</code></pre>
+
+  <p>普通矩阵乘法 \(b(\phi)=Bw\) 得到：</p>
+
+  <pre class="matrix-example"><code>b(φ) =
+[ P₁exp(iφ₁),
+  P₁exp(iφ₁),
+  P₂exp(iφ₂),
+  P₃exp(iφ₃),
+  P₃exp(iφ₃),
+  0,
+  0,
+  0 ]ᵀ</code></pre>
+
+  <p>这正是完整 Helmholtz 右端：同一个阵元覆盖的所有网格点获得相同的复数 Dirichlet 激励，非声源点右端为零。</p>
+
+  <h3>更精确的结构写法：\(B=C\,\mathrm{diag}(P)\)</h3>
+
+  <p>定义阵元到网格的 0/1 映射矩阵：</p>
+
+  \[
+  C_{j,r}=
+  \begin{cases}
+  1, & \text{网格点 }j\text{ 映射到阵元 }r \\
+  0, & \text{否则}
+  \end{cases}
+  \]
+
+  <p>再定义阵元幅值向量 \(P=[P_1,\ldots,P_M]^T\)，则：</p>
+
+  \[
+  B=C\,\mathrm{diag}(P_1,\ldots,P_M)
+  \]
+
+  <p>当前代码把所有阵元幅值统一设为标定表面声压 \(P_0\)：</p>
+
+  <pre><code>P₁ = P₂ = ... = P₂₅₆ = P₀</code></pre>
+
+  <p>所以当前可以进一步简化为：</p>
+
+  \[
+  B=P_0 C
+  \]
+
+  <p class="warn"><strong>这通常不是张量积。</strong>只有当每个阵元覆盖相同数量的网格点，而且人为把网格行按阵元重新排列时，声源部分才可能写成类似 \(I_M\otimes\mathbf{1}_k\) 的特殊形式。当前代码使用一般的网格映射 \(C\)，不依赖这种规则排列。</p>
+
+  <h3>为什么 \(B\) 非常稀疏？</h3>
+
+  <ul>
+    <li>只有底面换能器圆盘覆盖的网格点可能非零。</li>
+    <li>当前 GPU 装配先找每个底面网格点最近的阵元中心，检查是否落在该阵元半径内。</li>
+    <li>每个有效声源网格点只记录一个 <code>emitter_id</code>，所以 \(B\) 的每一行至多一个非零元。</li>
+    <li>每个阵元必须至少覆盖一个网格点，否则响应基构建会报错。</li>
+    <li>不同阵元覆盖的离散网格点数可能不同，因此不同列的非零元数量不保证完全相同。</li>
+  </ul>
+
+  <p>不要把“\(B\) 很稀疏”和“\(G\) 很稀疏”混淆。一个局部声源通过 Helmholtz 方程传播到全空间，因此：</p>
+
+  <pre><code>B 的一列：只在少量声源网格点非零       → 稀疏输入
+G 的一列：一个阵元产生的完整三维声场   → 通常稠密输出</code></pre>
+
+  <h3>代码实际上没有长期创建完整 \(B\)</h3>
+
+  <p>数学上写 \(G=A^{-1}B\) 很方便，但当前实现不会先分配完整的 \(N\times M\) 稠密 \(B\)。它通过 <code>emitter_dof_map()</code> 得到：</p>
+
+  <ul>
+    <li><code>dof_indices</code>：哪些完整网格自由度是声源点。</li>
+    <li><code>emitter_ids</code>：每个声源点属于哪个阵元。</li>
+  </ul>
+
+  <p>然后按 <code>phase_basis_batch_size</code> 分批构造 \(B\) 的列：</p>
+
+  <pre><code>rhs = zeros((N, batch_size))
+
+for emitter in this_batch:
+    rhs[dof_indices belonging to emitter, local_column] = P[emitter]
+
+G[:, this_batch] = solve(A, rhs)</code></pre>
+
+  <p>当前 55³、16×16 示例的批大小为 16：</p>
+
+  <pre><code>概念上的完整 B：166375 × 256
+一次实际构造的 RHS：166375 × 16
+
+complex128 下：
+完整稠密 B 约 650 MiB
+一批 RHS 约 40.6 MiB</code></pre>
+
+  <p>这里的内存数字按纯数组元素数计算，不包含 Python、求解器或临时工作区。\(B\) 本可用稀疏格式保存，但当前直接求解接口使用分批稠密 RHS；这样避免长期保存完整 \(B\)，同时复用同一份矩阵分解。</p>
+
+  <h3>从 \(B\) 到 \(G\)：列的物理意义没有改变</h3>
+
+  <div class="flow">
+    <span>第 \(r\) 个输入列 \(b_r\)</span>
+    <span aria-hidden="true">→</span>
+    <span>求解 \(A g_r=b_r\)</span>
+    <span aria-hidden="true">→</span>
+    <strong>第 \(r\) 个全场响应 \(g_r\)</strong>
+  </div>
+
+  \[
+  G=[g_1,\ldots,g_M]
+  =
+  [A^{-1}b_1,\ldots,A^{-1}b_M]
+  \]
+
+  <h3>关键点：代码从不显式计算 \(A^{-1}\)</h3>
+
+  <p class="warn">\(A^{-1}B\) 是线性算子的数学记号，不表示先生成一个稠密逆矩阵 \(A^{-1}\)。实际计算始终是求解线性方程 \(Ag_r=b_r\)。显式求逆不仅需要巨大内存，通常也比基于分解的线性求解更慢、数值稳定性更差。</p>
+
+  <p>把 \(B\) 和 \(G\) 按列展开：</p>
+
+  \[
+  B=[b_1,b_2,\ldots,b_M],
+  \qquad
+  G=[g_1,g_2,\ldots,g_M]
+  \]
+
+  <p>矩阵方程 \(AG=B\) 等价于 \(M\) 个相互独立、但系数矩阵完全相同的向量方程：</p>
+
+  \[
+  \begin{aligned}
+  Ag_1 &= b_1,\\
+  Ag_2 &= b_2,\\
+  &\ \vdots\\
+  Ag_M &= b_M.
+  \end{aligned}
+  \]
+
+  <p>因此，即使某个底层求解器只接受一个向量右端，也仍然能够逐列得到 \(G\)。真正重要的是所有列都使用同一个 \(A\)，所以昂贵的矩阵分析和数值分解只需要执行一次。</p>
+
+  <pre><code>factor = factorize(A)           # 只执行一次
+
+for each batch of B:
+    for each column b_r in batch:
+        g_r = solve_with_factor(factor, b_r)
+        G[:, r] = g_r</code></pre>
+
+  <p>可以把这个过程理解为：</p>
+
+  <div class="flow">
+    <span>一次装配 \(A\)</span>
+    <span aria-hidden="true">→</span>
+    <span>一次分析与分解</span>
+    <span aria-hidden="true">→</span>
+    <strong>复用因子求解 256 个右端</strong>
+    <span aria-hidden="true">→</span>
+    <span>保存 256 列 \(G\)</span>
+  </div>
+
+  <p>若直接求解器把 \(A\) 分解为适合其矩阵类型的三角因子，那么每个新的 \(b_r\) 只需要进行前代和回代，不需要重新分解 \(A\)。这就是响应基预计算能够承受 256 个阵元右端的原因。</p>
+
+  <h3>“矩阵右端”只是多个向量右端的统一接口</h3>
+
+  <p>当前 <code>solve_rhs()</code> 同时接受两种形状：</p>
+
+  <pre><code>rhs.shape = (N,)        # 一个向量右端
+rhs.shape = (N, nrhs)   # nrhs 个向量右端</code></pre>
+
+  <p>例如当前批大小为 16 时，调用：</p>
+
+  \[
+  A
+  \begin{bmatrix}
+  g_r & g_{r+1} & \cdots & g_{r+15}
+  \end{bmatrix}
+  =
+  \begin{bmatrix}
+  b_r & b_{r+1} & \cdots & b_{r+15}
+  \end{bmatrix}
+  \]
+
+  <p>这在数学上仍是 16 个独立的线性方程。当前边界处理可以对这 16 列一起做矩阵运算；当前 cuDSS 封装则在内部逐列设置 RHS 并调用求解，但每一列都复用同一份 cuDSS 分解因子。</p>
+
+  <pre><code># 当前 cuDSS 包装层的等价逻辑
+for column in range(rhs_matrix.shape[1]):
+    rhs_buffer[:] = rhs_matrix[:, column]
+    result[:, column] = factorized_solver.solve(rhs_buffer)</code></pre>
+
+  <p class="note">所以“批大小为 16”不代表只进行了 16 次向量求解。当前共有 256 个阵元，数学上仍需要 256 个右端求解；它们被组织成 16 批，每批 16 列。分批主要用于控制 RHS 临时内存、减少接口管理开销，并支持中断后按已完成列继续构建。</p>
+
+  <h3>边界凝聚后，一批 \(B\) 如何恢复成完整 \(G\)</h3>
+
+  <p>实际求解不会直接分解完整的原始矩阵。把自由度分成保留部分 \(R\) 和被消去的边界部分 \(E\)，对一批右端可写成：</p>
+
+  \[
+  \begin{bmatrix}
+  A_{RR} & A_{RE}\\
+  A_{ER} & A_{EE}
+  \end{bmatrix}
+  \begin{bmatrix}
+  G_R\\
+  G_E
+  \end{bmatrix}
+  =
+  \begin{bmatrix}
+  B_R\\
+  B_E
+  \end{bmatrix}.
+  \]
+
+  <p>首先处理被消去边界上的这一批右端：</p>
+
+  \[
+  Y=A_{EE}^{-1}B_E.
+  \]
+
+  <p>然后构造约化矩阵和约化右端：</p>
+
+  \[
+  S=A_{RR}-A_{RE}A_{EE}^{-1}A_{ER},
+  \qquad
+  \widetilde B_R=B_R-A_{RE}Y.
+  \]
+
+  <p>使用同一份约化矩阵分解求解所有保留自由度：</p>
+
+  \[
+  S G_R=\widetilde B_R.
+  \]
+
+  <p>最后通过边界传递矩阵 \(T=-A_{EE}^{-1}A_{ER}\) 恢复完整边界响应：</p>
+
+  \[
+  G_E=Y+T G_R.
+  \]
+
+  <p>因此，cuDSS 实际分解和求解的是更小的约化系统 \(S\)，但响应基文件中保存的每一列仍然是恢复后的完整三维声场：</p>
+
+  \[
+  G=
+  \begin{bmatrix}
+  G_R\\
+  G_E
+  \end{bmatrix}
+  \in\mathbb{C}^{N\times M}.
+  \]
+
+  <p>因此 \(G\) 第 \(r\) 列已经包含第 \(r\) 个阵元的固定幅值 \(P_r\)。在线乘的 \(w_r=e^{i\phi_r}\) 只有相位、模长为 1，不会再次乘一次 \(P_r\)。</p>
+
+  <p class="summary"><strong>最直观的记忆方式：</strong>\(C\) 回答“第几个阵元对应哪些网格点”，\(\mathrm{diag}(P)\) 回答“每个阵元有多大幅值”，\(w=\exp(i\phi)\) 回答“每个阵元当前转了多少相位”，而 \(A^{-1}\) 回答“这些局部输入如何传播成完整声场”。</p>
 
   <h2>当前 phase-only 前向模型</h2>
 
@@ -149,7 +591,7 @@
   A u(\phi)=b(\phi)
   \]
 
-  <p>相位只进入右端项：</p>
+  <p>相位只进入右端项；幅值已包含在 \(B\) 中：</p>
 
   \[
   b(\phi)=B\exp(i\phi)
@@ -167,17 +609,228 @@
   u(\phi)=G\exp(i\phi)
   \]
 
-  <p>这一步没有自由空间近似；\(G\) 的每一列都是在当前障碍物和边界条件下由完整 PDE 求得的全场响应。</p>
+  <p>这一步没有自由空间近似；\(G\) 的每一列都是在当前障碍物和边界条件下，由一个阵元以配置幅值、零相位激励完整 PDE 得到的全场响应。</p>
 
   <h2>复数场到振幅 loss 的导数</h2>
 
-  <p>代码统一先把 loss 对复声场的变化写成：</p>
+  <p class="summary"><strong>先给结论：</strong><code>field_cotangent</code> 不是近似梯度，也不是人为绕过求导的中间量。它是损失函数对声场实部和虚部的普通实梯度，用一个复向量表示后的结果。最终交给 Adam、L-BFGS-B 等优化器的仍是严格意义下的实数相位梯度 \(\nabla_\phi L\in\mathbb{R}^{M}\)。</p>
+
+  <h3>为什么不能直接写普通的 \(\partial L/\partial u\)？</h3>
+
+  <p>复声压可写成：</p>
 
   \[
-  dL=\operatorname{Re}(c^Hdu)
+  u=x+i y,
+  \qquad
+  x,y\in\mathbb{R}^{N}.
   \]
 
-  <p>其中 \(c\) 是传给 <code>PhaseResponseBasis.phase_vjp()</code> 的 <code>field_cotangent</code>。</p>
+  <p>当前 loss 依赖振幅：</p>
+
+  \[
+  |u|=\sqrt{u\,u^*}=\sqrt{x^2+y^2}.
+  \]
+
+  <p>因为 \(|u|\) 同时依赖 \(u\) 和共轭 \(u^*\)，它不满足复变函数的柯西－黎曼条件，不能把 \(L(|u|)\) 当成关于 \(u\) 的解析函数使用普通复导数。严谨做法是把它视为定义在 \(\mathbb{R}^{2N}\) 上的实值函数：</p>
+
+  \[
+  L=L(x,y),
+  \qquad
+  L:\mathbb{R}^{2N}\rightarrow\mathbb{R}.
+  \]
+
+  <p>它的普通实数全微分为：</p>
+
+  \[
+  dL=
+  \left(\frac{\partial L}{\partial x}\right)^Tdx
+  +
+  \left(\frac{\partial L}{\partial y}\right)^Tdy.
+  \]
+
+  <p>这就是后续所有复数写法的起点；没有改变变量，也没有省略实数链式法则。</p>
+
+  <h3>\(c\) 是两个实梯度的复数封装</h3>
+
+  <p>定义复向量：</p>
+
+  \[
+  c=
+  \frac{\partial L}{\partial x}
+  i\frac{\partial L}{\partial y}.
+  \]
+
+  <p>因此：</p>
+
+  \[
+  \operatorname{Re}(c)
+  =
+  \frac{\partial L}{\partial x},
+  \qquad
+  \operatorname{Im}(c)
+  =
+  \frac{\partial L}{\partial y}.
+  \]
+
+  <p>又因为 \(du=dx+i\,dy\)，所以：</p>
+
+  \[
+  \begin{aligned}
+  \operatorname{Re}(c^Hdu)
+  &=
+  \operatorname{Re}
+  \left[
+  \left(
+  \frac{\partial L}{\partial x}
+  i\frac{\partial L}{\partial y}
+  \right)^H
+  (dx+i\,dy)
+  \right]\\
+  &=
+  \left(\frac{\partial L}{\partial x}\right)^Tdx
+  +
+  \left(\frac{\partial L}{\partial y}\right)^Tdy\\
+  &=dL.
+  \end{aligned}
+  \]
+
+  <p>于是可以把普通实数全微分紧凑地写为：</p>
+
+  \[
+  \boxed{
+  dL=\operatorname{Re}(c^Hdu)
+  }.
+  \]
+
+  <p>其中 \(H\) 表示共轭转置。必须取实部，因为 \(L\) 和 \(dL\) 都是实数，而 \(c^Hdu\) 本身可能含有虚部。</p>
+
+  <div class="columns">
+    <article>
+      <h3>\(du\)：场的变化</h3>
+      <p>描述所有网格点的复声压沿什么方向发生微小变化。</p>
+      <p><code>shape = (N,)</code></p>
+    </article>
+    <article>
+      <h3>\(c\)：输出端敏感度</h3>
+      <p>给定任意 \(du\)，通过实内积计算对应的一阶损失变化。</p>
+      <p><code>shape = (N,)</code></p>
+    </article>
+    <article>
+      <h3>\(dL\)：标量变化</h3>
+      <p>满足 \(L(u+du)=L(u)+dL+o(\lVert du\rVert)\)。</p>
+      <p><code>shape = scalar</code></p>
+    </article>
+  </div>
+
+  <h3>为什么它叫 cotangent，而不直接叫 gradient？</h3>
+
+  <p>在反向模式自动微分中，上游传回来的对象描述一个线性映射：</p>
+
+  \[
+  du
+  \longmapsto
+  dL=\operatorname{Re}(c^Hdu).
+  \]
+
+  <p>\(du\) 是输出空间中的变化方向（tangent），而 \(c\) 表示作用在这个方向上的线性泛函，因此称为 cotangent。选定实内积 \(\langle a,b\rangle_{\mathbb R}=\operatorname{Re}(a^Hb)\) 后，cotangent 可以由向量 \(c\) 唯一表示，所以它也可以直观地称为“复声场梯度”。代码使用 <code>field_cotangent</code> 是为了强调它是传给 VJP 的输出端敏感度。</p>
+
+  <p>它与 Wirtinger 导数的关系是：</p>
+
+  \[
+  \frac{\partial L}{\partial u^*}
+  =
+  \frac12
+  \left(
+  \frac{\partial L}{\partial x}
+  +
+  i\frac{\partial L}{\partial y}
+  \right),
+  \qquad
+  \boxed{
+  c=2\frac{\partial L}{\partial u^*}
+  }.
+  \]
+
+  <p class="note">不同论文和自动微分框架可能把 \(\partial L/\partial u^*\) 或 \(2\partial L/\partial u^*\) 称为“复梯度”，因而看起来相差因子 2。本文通过明确规定 \(dL=\operatorname{Re}(c^Hdu)\) 固定了约定，后续公式和代码都使用同一约定。</p>
+
+  <h3>它与普通实数链式法则完全等价</h3>
+
+  <p>相位 \(\phi\in\mathbb{R}^{M}\) 才是优化变量。设：</p>
+
+  \[
+  u(\phi)=x(\phi)+i\,y(\phi).
+  \]
+
+  <p>直接在实数域应用链式法则，应得到：</p>
+
+  \[
+  \nabla_\phi L
+  =
+  \left(\frac{\partial x}{\partial\phi}\right)^T
+  \frac{\partial L}{\partial x}
+  +
+  \left(\frac{\partial y}{\partial\phi}\right)^T
+  \frac{\partial L}{\partial y}.
+  \]
+
+  <p>把 \(c=\partial L/\partial x+i\,\partial L/\partial y\) 和 \(du=(\partial u/\partial\phi)d\phi\) 代入 \(\operatorname{Re}(c^Hdu)\)，展开后恰好得到上式。因此复数 VJP 只是对同一个实数 Jacobian 转置乘法的紧凑实现：</p>
+
+  \[
+  \underbrace{
+  \begin{bmatrix}
+  \partial x/\partial\phi\\
+  \partial y/\partial\phi
+  \end{bmatrix}^{T}
+  \begin{bmatrix}
+  \partial L/\partial x\\
+  \partial L/\partial y
+  \end{bmatrix}
+  }_{\text{普通实数 VJP}}
+  =
+  \underbrace{
+  \nabla_\phi L
+  }_{\text{最终实数相位梯度}}.
+  \]
+
+  <p>代码中的职责边界为：</p>
+
+  <div class="flow">
+    <span>loss 根据 \(u\) 解析计算 \(c\)</span>
+    <span aria-hidden="true">→</span>
+    <span><code>phase_vjp(c, phases)</code></span>
+    <span aria-hidden="true">→</span>
+    <strong>输出 \(\nabla_\phi L\in\mathbb{R}^{M}\)</strong>
+  </div>
+
+  <p>优化器不会直接使用 \(c\)。它只接收最终的普通实数数组 <code>gradient[r] = ∂L/∂φ_r</code>。</p>
+
+  <h3>零振幅处的严格性边界</h3>
+
+  <p>振幅函数 \(|u|\) 在 \(u=0\) 处不可微，因为此处没有唯一方向。当前实现使用：</p>
+
+  \[
+  \frac{u}{|u|+\epsilon}
+  \]
+
+  <p>避免除零，并在 \(u=0\) 时返回零方向。对于 \(|u|\gg\epsilon\) 的点，它与解析导数 \(u/|u|\) 几乎一致；但严格地说，这是零点附近的数值正则化。</p>
+
+  <p>如果需要构造处处光滑且 loss 与导数完全一致的形式，可以同时把振幅定义改为：</p>
+
+  \[
+  a_\epsilon(u)=\sqrt{|u|^2+\epsilon^2},
+  \qquad
+  da_\epsilon
+  =
+  \operatorname{Re}
+  \left[
+  \left(
+  \frac{u}{\sqrt{|u|^2+\epsilon^2}}
+  \right)^*
+  du
+  \right].
+  \]
+
+  <p>当前代码取 \(\epsilon=10^{-12}\)，主要用于数值保护。解析相位梯度还会与中心有限差分结果逐项比较，从实现层面检查符号、共轭、因子 2 和相位链式法则。</p>
 
   <h3>field_match</h3>
 
@@ -192,11 +845,89 @@
 
   <p>令 \(r_j=|u_j|-a^{target}_j\)，则：</p>
 
+  <p>对于 \(u_j=x_j+i\,y_j\neq 0\)，振幅的微分为：</p>
+
+  \[
+  \begin{aligned}
+  d|u_j|
+  &=
+  \frac{x_j\,dx_j+y_j\,dy_j}{|u_j|}\\
+  &=
+  \operatorname{Re}
+  \left(
+  \frac{u_j^*}{|u_j|}du_j
+  \right).
+  \end{aligned}
+  \]
+
+  <p>第 \(j\) 个网格点的损失微分为：</p>
+
+  \[
+  \begin{aligned}
+  dL_j
+  &=
+  W_j^2r_j\,d|u_j|\\
+  &=
+  \operatorname{Re}
+  \left[
+  \left(
+  W_j^2r_j\frac{u_j}{|u_j|}
+  \right)^*
+  du_j
+  \right].
+  \end{aligned}
+  \]
+
+  <p>与定义 \(dL_j=\operatorname{Re}(c_j^*du_j)\) 逐项比较，得到：</p>
+
   \[
   c_j=
   W_j^2 r_j
   \frac{u_j}{|u_j|+\epsilon}
   \]
+
+  <p>其中分母中的 \(\epsilon\) 是代码加入的零振幅保护；忽略该数值正则项时，上式就是前面严格推导出的 \(u_j/|u_j|\)。</p>
+
+  <h3>单个复声压的数值核对</h3>
+
+  <p>设某网格点 \(u=3+4i\)，目标振幅为 6，权重为 1，则：</p>
+
+  \[
+  |u|=5,
+  \qquad
+  r=5-6=-1,
+  \qquad
+  c=r\frac{u}{|u|}=-0.6-0.8i.
+  \]
+
+  <p>若声场发生微小变化 \(du=0.01+0.02i\)，cotangent 公式给出：</p>
+
+  \[
+  dL
+  =
+  \operatorname{Re}(c^*du)
+  =
+  \operatorname{Re}
+  \left[
+  (-0.6+0.8i)(0.01+0.02i)
+  \right]
+  =
+  -0.022.
+  \]
+
+  <p>直接在实数域计算也得到：</p>
+
+  \[
+  d|u|
+  =
+  \frac{3(0.01)+4(0.02)}{5}
+  =
+  0.022,
+  \qquad
+  dL=r\,d|u|=-0.022.
+  \]
+
+  <p>两种结果完全一致，说明 cotangent 表示没有改变导数，只是把实部梯度和虚部梯度合并在一个复数中。</p>
 
   <p>对应代码：</p>
 
@@ -286,17 +1017,129 @@
 
   <h2>响应基下的相位梯度</h2>
 
-  <p>由 \(u=Gw\)、\(w_r=e^{i\phi_r}\) 得：</p>
+  <p class="summary"><strong>这一节的目标：</strong>已知 loss 对完整复声场的 cotangent \(c\)，求每个实数阵元相位的梯度 \(\partial L/\partial\phi_r\)。这是从 \(N\) 个网格点的场敏感度反向汇总到 \(M\) 个阵元的过程。</p>
+
+  <h3>公式中的符号分别表示什么？</h3>
+
+  <table>
+    <thead>
+      <tr>
+        <th>符号</th>
+        <th>形状</th>
+        <th>含义</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>\(\phi_r\)</td>
+        <td>实数标量</td>
+        <td>第 \(r\) 个阵元的待优化相位。</td>
+      </tr>
+      <tr>
+        <td>\(G_{:,r}\)</td>
+        <td>\(\mathbb{C}^{N}\)</td>
+        <td>响应基 \(G\) 的第 \(r\) 列，即第 \(r\) 个阵元以配置幅值、零相位激励时的完整复声场。</td>
+      </tr>
+      <tr>
+        <td>\(c\)</td>
+        <td>\(\mathbb{C}^{N}\)</td>
+        <td>loss 对完整复声场的 cotangent，满足 \(dL=\operatorname{Re}(c^Hdu)\)。</td>
+      </tr>
+      <tr>
+        <td>\((\cdot)^H\)</td>
+        <td>—</td>
+        <td>共轭转置；\(G^H=\overline G^T\)。</td>
+      </tr>
+      <tr>
+        <td>\(\overline z\)</td>
+        <td>\(\mathbb{C}^{M}\)</td>
+        <td>向量 \(z\) 的逐元素复共轭。</td>
+      </tr>
+      <tr>
+        <td>\(\odot\)</td>
+        <td>—</td>
+        <td>Hadamard 乘积，即相同位置逐元素相乘，不是矩阵乘法。</td>
+      </tr>
+      <tr>
+        <td>\(\nabla_\phi L\)</td>
+        <td>\(\mathbb{R}^{M}\)</td>
+        <td>最终交给优化器的相位梯度，每个阵元对应一个实数。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>第一步：把声场写成所有阵元响应的叠加</h3>
+
+  <p>令阵元复权重为：</p>
 
   \[
+  w=\exp(i\phi),
+  \qquad
+  w_r=e^{i\phi_r}.
+  \]
+
+  <p>响应基前向模型为：</p>
+
+  \[
+  u=Gw
+  =
+  \sum_{r=1}^{M}
+  G_{:,r}e^{i\phi_r}.
+  \]
+
+  <p>这里 \(G_{:,r}\) 已经包含第 \(r\) 个阵元的固定幅值和完整 PDE 传播结果；\(e^{i\phi_r}\) 只负责旋转该列响应的复相位。</p>
+
+  <h3>第二步：求声场对单个相位的导数</h3>
+
+  <p>当只改变 \(\phi_r\) 时，求和式中只有第 \(r\) 项变化。由复指数的普通实变量导数：</p>
+
+  \[
+  \frac{d}{d\phi_r}e^{i\phi_r}
+  =
+  i e^{i\phi_r},
+  \]
+
+  <p>得到：</p>
+
+  \[
+  \boxed{
   \frac{\partial u}{\partial\phi_r}
   =
   iG_{:,r}e^{i\phi_r}
+  }.
   \]
 
-  <p>代入 \(dL=\operatorname{Re}(c^Hdu)\)：</p>
+  <p>这个导数是长度为 \(N\) 的复向量，描述第 \(r\) 个阵元相位发生单位微小变化时，所有网格点的复声压分别如何变化。</p>
+
+  <h3>第三步：使用全微分读出单个相位梯度</h3>
+
+  <p>只对第 \(r\) 个相位施加微小扰动 \(d\phi_r\) 时：</p>
 
   \[
+  du=
+  \frac{\partial u}{\partial\phi_r}d\phi_r.
+  \]
+
+  <p>代入复声场全微分定义：</p>
+
+  \[
+  \begin{aligned}
+  dL
+  &=
+  \operatorname{Re}(c^Hdu)\\
+  &=
+  \operatorname{Re}
+  \left[
+  c^H
+  \frac{\partial u}{\partial\phi_r}
+  \right]d\phi_r.
+  \end{aligned}
+  \]
+
+  <p>另一方面，普通实变量微分满足 \(dL=(\partial L/\partial\phi_r)d\phi_r\)。比较 \(d\phi_r\) 前的系数：</p>
+
+  \[
+  \boxed{
   \frac{\partial L}{\partial\phi_r}
   =
   \operatorname{Re}
@@ -306,17 +1149,65 @@
       iG_{:,r}e^{i\phi_r}
     \right)
   \right]
+  }.
   \]
 
-  <p>批量计算时先做一次伴随矩阵向量乘：</p>
+  <p>它的物理意义是：先计算“第 \(r\) 个阵元的相位变化会造成怎样的全场变化”，再与 loss 对全场的敏感度 \(c\) 做实内积，得到该相位对 loss 的一阶影响。</p>
+
+  <h3>第四步：用一次 \(G^Hc\) 同时处理所有阵元</h3>
+
+  <p>若逐个计算上一公式，需要对每个阵元分别执行一次长度为 \(N\) 的内积。定义：</p>
 
   \[
   z=G^Hc
   \]
 
-  <p>代码中使用的相位梯度为：</p>
+  <p>维度为：</p>
 
   \[
+  G^H\in\mathbb{C}^{M\times N},
+  \qquad
+  c\in\mathbb{C}^{N},
+  \qquad
+  z\in\mathbb{C}^{M}.
+  \]
+
+  <p>\(z\) 的第 \(r\) 个元素为：</p>
+
+  \[
+  z_r=G_{:,r}^Hc.
+  \]
+
+  <p>因此 \(z_r\) 是第 \(r\) 个阵元的完整场响应 \(G_{:,r}\) 与全场 loss 敏感度 \(c\) 的复内积，可以理解为“从整个空间反向汇总到第 \(r\) 个阵元的复敏感度”。</p>
+
+  <h3>为什么最终公式中出现 \(\overline z\)？</h3>
+
+  <p>单阵元公式中出现的是 \(c^HG_{:,r}\)，而 \(z_r\) 的定义是 \(G_{:,r}^Hc\)。二者互为复共轭：</p>
+
+  \[
+  c^HG_{:,r}
+  =
+  \left(G_{:,r}^Hc\right)^*
+  =
+  \overline{z_r}.
+  \]
+
+  <p>所以单阵元梯度可以改写为：</p>
+
+  \[
+  \frac{\partial L}{\partial\phi_r}
+  =
+  \operatorname{Re}
+  \left[
+  \overline{z_r}\,
+  i e^{i\phi_r}
+  \right].
+  \]
+
+  <p>把全部 \(M\) 个阵元合并成一个向量，就得到代码中使用的公式：</p>
+
+  \[
+  \boxed{
   \nabla_\phi L
   =
   \operatorname{Re}
@@ -325,7 +1216,40 @@
     \odot
     i\exp(i\phi)
   \right]
+  }.
   \]
+
+  <p>这里使用 \(\odot\) 是因为每个 \(z_r\) 只与同一个阵元的 \(i e^{i\phi_r}\) 相乘：</p>
+
+  \[
+  \overline z\odot i\exp(i\phi)
+  =
+  \begin{bmatrix}
+  \overline{z_1}i e^{i\phi_1}\\
+  \overline{z_2}i e^{i\phi_2}\\
+  \vdots\\
+  \overline{z_M}i e^{i\phi_M}
+  \end{bmatrix}.
+  \]
+
+  <h3>等价的更紧凑形式</h3>
+
+  <p>利用复数恒等式 \(\operatorname{Re}(iq)=-\operatorname{Im}(q)\)，还可以得到：</p>
+
+  \[
+  \boxed{
+  \nabla_\phi L
+  =
+  \operatorname{Im}
+  \left[
+  \exp(-i\phi)\odot G^Hc
+  \right]
+  }.
+  \]
+
+  <p>两种表达完全等价。当前实现选择第一种形式，因为它直接对应“先算 \(G^Hc\)，再乘 \(d e^{i\phi}/d\phi=i e^{i\phi}\)”这一链式法则。</p>
+
+  <h3>代码与公式逐项对应</h3>
 
   <p>对应实现：</p>
 
@@ -333,41 +1257,293 @@
 weights = exp(1j * phases)
 gradient = real(conjugate(response) * (1j * weights))</code></pre>
 
-  <p class="note">这一步常被称为 VJP，因为它没有显式构造 \(N\times M\) 的 Jacobian；只需要一次 \(G^Hc\) 就得到所有相位的梯度。</p>
+  <table>
+    <thead>
+      <tr>
+        <th>代码</th>
+        <th>数学量</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>basis</code></td>
+        <td>\(G\)</td>
+      </tr>
+      <tr>
+        <td><code>cotangent</code></td>
+        <td>\(c\)</td>
+      </tr>
+      <tr>
+        <td><code>response</code></td>
+        <td>\(z=G^Hc\)</td>
+      </tr>
+      <tr>
+        <td><code>weights</code></td>
+        <td>\(w=\exp(i\phi)\)</td>
+      </tr>
+      <tr>
+        <td><code>gradient</code></td>
+        <td>\(\nabla_\phi L=\operatorname{Re}(\overline z\odot iw)\)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="note">这一步称为 VJP（Vector–Jacobian Product，向量–雅可比积），因为它直接计算 loss 敏感度与声场 Jacobian 的乘积，而不显式创建尺寸约为 \(N\times M\) 的 Jacobian。一次 \(G^Hc\) 就能汇总所有网格点并得到全部阵元的反向敏感度。</p>
+
+  <div class="flow">
+    <span>相位 \(\phi\)</span>
+    <span aria-hidden="true">→</span>
+    <span>权重 \(w=e^{i\phi}\)</span>
+    <span aria-hidden="true">→</span>
+    <span>声场 \(u=Gw\)</span>
+    <span aria-hidden="true">→</span>
+    <span>loss 得到 \(c\)</span>
+    <span aria-hidden="true">→</span>
+    <span>\(z=G^Hc\)</span>
+    <span aria-hidden="true">→</span>
+    <strong>实数梯度 \(\nabla_\phi L\)</strong>
+  </div>
 
   <h2>与 PDE 伴随法的关系</h2>
 
-  <p>phase-only 中，矩阵 \(A\) 固定、右端 \(b\) 只依赖相位。响应基把所有在线 PDE 伴随求解提前折叠进 \(G^H\)。因此在线相位优化不需要每轮求解：</p>
+  <h3>伴随方程右端 \(c\) 从哪里来？</h3>
+
+  <p class="summary"><strong>一句话：</strong>\(c\) 只由 loss 对当前声场 \(u\) 的导数决定，与如何求解 PDE 无关。它不是材料系数，也不是真实换能器激励；在伴随方程中，它扮演“损失敏感度源”的角色。</p>
+
+  <p>对第 \(j\) 个网格点，写成：</p>
 
   \[
-  A^H\lambda=c
+  u_j=x_j+i\,y_j.
   \]
 
-  <p>但如果优化变量改变矩阵，例如障碍物姿态、SDF 或材料参数 \(\theta\)，则：</p>
+  <p>首先完全按照普通实变量求导，得到：</p>
 
   \[
-  A(\theta)u=b
+  \frac{\partial L}{\partial x_j},
+  \qquad
+  \frac{\partial L}{\partial y_j}.
   \]
 
-  <p>对参数求导：</p>
+  <p>再把这两个实数合并为一个复数：</p>
+
+  \[
+  \boxed{
+  c_j=
+  \frac{\partial L}{\partial x_j}
+  i\frac{\partial L}{\partial y_j}
+  }.
+  \]
+
+  <p>因此完整的 \(c\) 是由所有网格点敏感度组成的向量：</p>
+
+  \[
+  c=
+  \begin{bmatrix}
+  c_1&c_2&\cdots&c_N
+  \end{bmatrix}^{T}
+  \in\mathbb{C}^{N}.
+  \]
+
+  <p>这个定义保证任意微小声场变化 \(du\) 引起的损失变化都满足：</p>
+
+  \[
+  dL=
+  \operatorname{Re}(c^Hdu).
+  \]
+
+  <p>所以 \(c_j\) 的含义不是“网格点 \(j\) 的声压”，而是：</p>
+
+  <blockquote>
+    如果网格点 \(j\) 的复声压沿某个方向发生微小变化，这个变化会让 loss 增加还是减小，以及变化有多快。
+  </blockquote>
+
+  <h3>对于振幅 loss，\(c_j\) 如何直接算出？</h3>
+
+  <p>若某点的损失写成 \(L_j=f(|u_j|)\)，令 \(a_j=|u_j|\)，则普通链式法则给出：</p>
+
+  \[
+  dL_j=f'(a_j)\,da_j.
+  \]
+
+  <p>又因为：</p>
+
+  \[
+  da_j
+  =
+  \operatorname{Re}
+  \left(
+  \frac{u_j^*}{|u_j|}du_j
+  \right),
+  \]
+
+  <p>所以：</p>
+
+  \[
+  dL_j
+  =
+  \operatorname{Re}
+  \left[
+  \left(
+  f'(|u_j|)
+  \frac{u_j}{|u_j|}
+  \right)^*
+  du_j
+  \right].
+  \]
+
+  <p>与 \(dL_j=\operatorname{Re}(c_j^*du_j)\) 对比：</p>
+
+  \[
+  \boxed{
+  c_j=
+  f'(|u_j|)
+  \frac{u_j}{|u_j|}
+  }.
+  \]
+
+  <p>这里两部分的作用不同：</p>
+
+  <ul>
+    <li>\(f'(|u_j|)\)：决定 loss 希望该点振幅增大还是减小，以及敏感度大小。</li>
+    <li>\(u_j/|u_j|\)：给出当前复声压在复平面中的方向。</li>
+  </ul>
+
+  <p>例如目标点增益项：</p>
+
+  \[
+  L_{\mathrm{target}}
+  =
+  -\frac{\alpha}{K}
+  \sum_{k=1}^{K}|u_{t_k}|
+  \]
+
+  <p>对应目标点上的 \(c\) 为：</p>
+
+  \[
+  c_{t_k}
+  =
+  -\frac{\alpha}{K}
+  \frac{u_{t_k}}{|u_{t_k}|+\epsilon}.
+  \]
+
+  <p>非目标点如果没有出现在 loss 中，则其直接敏感度为零；如果 loss 还包含旁瓣惩罚，那么背景区域也会产生非零的 \(c_j\)。</p>
+
+  <h3>为什么 \(c\) 会成为伴随方程的右端？</h3>
+
+  <p>正向 PDE 为：</p>
+
+  \[
+  A(\theta)u=b(\theta).
+  \]
+
+  <p>对参数 \(\theta\) 求导：</p>
 
   \[
   A\frac{\partial u}{\partial\theta}
   =
   \frac{\partial b}{\partial\theta}
   -
-  \frac{\partial A}{\partial\theta}u
+  \frac{\partial A}{\partial\theta}u.
   \]
 
-  <p>定义 PDE 伴随变量：</p>
+  <p>而 loss 对参数的导数为：</p>
 
   \[
+  \frac{dL}{d\theta}
+  =
+  \operatorname{Re}
+  \left[
+  c^H\frac{\partial u}{\partial\theta}
+  \right].
+  \]
+
+  <p>如果直接代入 \(\partial u/\partial\theta\)，每个参数都可能需要一次新的大型 PDE 求解。为消去这个量，定义伴随变量 \(\lambda\) 满足：</p>
+
+  \[
+  \boxed{
   A^H\lambda=c
+  }.
   \]
 
-  <p>则参数梯度为：</p>
+  <p>对上式取共轭转置可得：</p>
 
   \[
+  c^H=\lambda^H A.
+  \]
+
+  <p>代回损失导数：</p>
+
+  \[
+  \begin{aligned}
+  \frac{dL}{d\theta}
+  &=
+  \operatorname{Re}
+  \left[
+  \lambda^H A
+  \frac{\partial u}{\partial\theta}
+  \right]\\
+  &=
+  \operatorname{Re}
+  \left[
+  \lambda^H
+  \left(
+  \frac{\partial b}{\partial\theta}
+  -
+  \frac{\partial A}{\partial\theta}u
+  \right)
+  \right].
+  \end{aligned}
+  \]
+
+  <p>这就是 \(A^H\lambda=c\) 的来源：不是凭空规定一个方程，而是为了用 \(c^H=\lambda^HA\) 消去昂贵的 \(\partial u/\partial\theta\)。</p>
+
+  <h3>“损失敏感度源”的物理直觉</h3>
+
+  <div class="columns">
+    <article>
+      <h3>正向右端 \(b\)</h3>
+      <p>描述真实换能器从哪些边界网格点向系统输入声压。</p>
+    </article>
+    <article>
+      <h3>伴随右端 \(c\)</h3>
+      <p>描述 loss 在哪些网格点关心声场，以及希望这些位置怎样变化。</p>
+    </article>
+    <article>
+      <h3>伴随场 \(\lambda\)</h3>
+      <p>把目标区和背景区的敏感度通过 \(A^H\) 反向传播到整个计算域。</p>
+    </article>
+  </div>
+
+  <p>如果 loss 只关心一个目标点，那么 \(c\) 主要只在该目标点非零。求解 \(A^H\lambda=c\) 可以直观理解为从目标点放置一个虚拟伴随源，再把它对整个场景的影响反向传播出去。</p>
+
+  <h3>它与响应基 VJP 是同一件事</h3>
+
+  <p>固定场景下 \(G=A^{-1}B\)，因此：</p>
+
+  \[
+  G^Hc
+  =
+  (A^{-1}B)^Hc
+  =
+  B^HA^{-H}c.
+  \]
+
+  <p>若定义 \(\lambda=A^{-H}c\)，也就是求解 \(A^H\lambda=c\)，则：</p>
+
+  \[
+  \boxed{
+  G^Hc=B^H\lambda
+  }.
+  \]
+
+  <p>因此响应基路径中的 \(G^Hc\) 与 PDE 伴随路径中的“先求 \(\lambda\)，再计算 \(B^H\lambda\)”在数学上完全等价。区别只是固定场景时已经预计算了 \(G\)，所以在线优化不必每轮重新求解伴随 PDE。</p>
+
+  <h3>最终的通用参数梯度</h3>
+
+  <p>对于会改变系统矩阵或右端的任意参数 \(\theta\)，上面的推导最终给出：</p>
+
+  \[
+  \boxed{
   \frac{dL}{d\theta}
   =
   \operatorname{Re}
@@ -379,6 +1555,7 @@ gradient = real(conjugate(response) * (1j * weights))</code></pre>
     \frac{\partial A}{\partial\theta}
     u
   \right]
+  }.
   \]
 
   <p>在障碍物几何/SDF 反演中，通常右端不随障碍物参数变化，即 \(\partial b/\partial\theta=0\)，因此：</p>
@@ -395,7 +1572,7 @@ gradient = real(conjugate(response) * (1j * weights))</code></pre>
   \right]
   \]
 
-  <p class="warn">这部分是未来 obstacle/SDF inversion 的路线。当前代码主线已经实现的是 phase-only 响应基梯度；障碍物参数梯度还需要补齐 \(A\) 对 SDF/姿态参数的可微装配。</p>
+  <p class="warn">固定场景的 phase-only 优化已经通过响应基 \(G\) 实现，不需要每轮求解伴随 PDE。上述显式伴随路径用于未来 obstacle/SDF inversion；当前还需要补齐 \(A\) 对 SDF、姿态或材料参数的可微装配。</p>
 
   <h2>有限差分验证</h2>
 
@@ -435,6 +1612,14 @@ algorithm_options:
       </tr>
     </thead>
     <tbody>
+      <tr>
+        <td>阵元到网格的映射 \(C\)</td>
+        <td><code>src/algorithm/physics/warp_utils.py</code> 中 GPU 装配的 <code>emitter_map_bottom</code> 与 <code>emitter_dof_map()</code></td>
+      </tr>
+      <tr>
+        <td>分批构造 \(B\) 的列并求 \(G=A^{-1}B\)</td>
+        <td><code>src/algorithm/training/phase_response_basis.py</code> 中的 <code>PhaseResponseBasis.build()</code></td>
+      </tr>
       <tr>
         <td>目标振幅场与权重</td>
         <td><code>src/algorithm/training/phase_adjoint_optimizer.py</code> 中的 <code>AmplitudeTarget</code> 和 <code>build_gaussian_target_fields()</code></td>
@@ -478,3 +1663,5 @@ algorithm_options:
     <li>障碍物/SDF 反演：需要 PDE 伴随和可微材料装配，不能复用固定响应基。</li>
   </ul>
 </div>
+</body>
+</html>

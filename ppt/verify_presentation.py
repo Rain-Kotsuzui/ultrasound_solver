@@ -24,23 +24,30 @@ def main():
         page.evaluate("document.fonts.ready")
         page.wait_for_timeout(2400)
         slide_count = page.locator(".slide").count()
-        assert slide_count == 8
+        assert slide_count == 17
+        assert page.locator(".chapter-list article").count() == 5
+        assert page.locator(".vision-grid article").count() == 4
+        assert page.locator(".application-gallery img").count() == 3
+        assert page.locator(".literature-grid img").count() == 3
+        assert page.locator(".architecture-path article").count() == 5
+        assert page.locator(".comsol-layout img").count() == 2
+        assert page.locator(".basis-objects article").count() == 3
+        assert page.locator(".cotangent-layout article").count() == 2
+        assert page.locator(".vjp-steps article").count() == 3
+        assert page.locator(".field-comparison-figure img").count() == 1
+        assert page.locator(".hardware-evidence img").count() == 2
+        assert page.locator(".closing-field").count() == 1
+        assert page.locator("#target-gain").inner_text() == "5.9×"
+        assert page.locator("#contrast-gain").inner_text() == "9.2×"
         assert page.locator("#algorithm-chart .metric-row").count() == 3
         assert page.locator("#ablation-chart .metric-row").count() == 5
-        assert page.locator("#array-drawing span").count() == 256
-        configured_media = page.evaluate("Object.values(window.DEFENSE_MEDIA).filter(Boolean).length")
-        page.wait_for_function(
-            "expected => document.querySelectorAll('.effect-slot.loaded').length === expected",
-            arg=configured_media,
-        )
-        assert page.locator(".effect-slot:not(.loaded)").count() == 2 - configured_media
         page.wait_for_function("Array.from(document.images).every(i => i.complete && i.naturalWidth > 0)")
         assert page.locator(".loss-figure img").count() == 2
         checks = []
         for width, height in [(1600, 900), (1920, 1080), (1366, 768), (390, 844), (844, 390)]:
             page.set_viewport_size({"width": width, "height": height})
             for number in range(1, slide_count + 1):
-                page.keyboard.press(str(number))
+                page.evaluate("index => show(index)", number - 1)
                 page.wait_for_timeout(70)
                 result = page.evaluate("""() => {
                     const slide = document.querySelector('.slide.active');
@@ -51,6 +58,7 @@ def main():
                     for (const node of slide.querySelectorAll('h1,h2,h3,p,article,figure,img,.metric-row,math')) {
                         const r = node.getBoundingClientRect();
                         if (node.closest('template')) continue;
+                        if (node.matches('.cover-photo, .closing-field')) continue;
                         if (r.left < sr.left - 1 || r.right > sr.right + 1 || r.top < sr.top - 1 ||
                             r.bottom > sr.bottom + 1) issues.push('outside slide: ' + node.textContent.slice(0,70));
                         if (!node.closest('footer') && r.bottom > footer.top + 2 &&
@@ -78,19 +86,19 @@ def main():
                 checks.append({"viewport": [width, height], "slide": number, **result})
                 if width == 1600:
                     page.screenshot(path=str(OUTPUT / f"slide-{number:02d}.png"))
-            assert page.locator(".slide.active").get_attribute("data-title") == "硬件部署与结论"
+            assert page.locator(".slide.active").get_attribute("data-title") == "结论"
         page.set_viewport_size({"width": 1600, "height": 900})
         page.keyboard.press("Home")
         page.keyboard.press("ArrowLeft")
         assert page.locator("#previous").is_disabled()
         page.keyboard.press("ArrowRight")
-        assert page.locator(".slide.active").get_attribute("data-title") == "三维物理求解器"
+        assert page.locator(".slide.active").get_attribute("data-title") == "章节目录"
         page.keyboard.press("n")
         assert page.locator("#notes-dialog").is_visible()
         page.keyboard.press("Escape")
         assert not page.locator("#notes-dialog").is_visible()
         page.keyboard.press("o")
-        page.locator("#overview-list button").nth(6).click()
+        page.locator("#overview-list button").nth(14).click()
         assert page.locator(".slide.active").get_attribute("data-title") == "共同质量数值对比"
         page.keyboard.press("End")
         assert page.locator("#next").is_disabled()
@@ -99,30 +107,12 @@ def main():
         page.wait_for_function("!!document.fullscreenElement")
         page.keyboard.press("f")
         page.wait_for_function("!document.fullscreenElement")
-        page.goto((HERE / "defense_5min.html").as_uri() + "#3")
-        page.wait_for_url("**/index.html#3")
-        assert page.locator(".slide.active").get_attribute("data-title") == "响应基与伴随梯度"
+        page.goto((HERE / "defense_5min.html").as_uri() + "#9")
+        page.wait_for_url("**/index.html#9")
+        assert page.locator(".slide.active").get_attribute("data-title") == "响应基如何构建"
         page.goto((HERE / "index.html").as_uri() + "#invalid")
-        assert page.locator(".slide.active").get_attribute("data-title") == "问题与主张"
+        assert page.locator(".slide.active").get_attribute("data-title") == "HaptiField"
         page.wait_for_timeout(2400)
-        # Exercise user-supplied media separately; never export the test images.
-        media_page = browser.new_page(viewport={"width": 1600, "height": 900})
-        media_page.add_init_script("""window.DEFENSE_MEDIA = {
-          baseline: "assets/algorithm_loss_dashboard.png",
-          ours: "assets/ablation_loss_dashboard.png"
-        };""")
-        media_page.goto((HERE / "index.html").as_uri() + "#4")
-        media_page.wait_for_function("document.querySelectorAll('.effect-slot.loaded').length === 2")
-        assert media_page.locator(".effect-slot img").count() == 2
-        assert media_page.locator(".effect-slot .slot-label").count() == 0
-        media_page.close()
-        pixels = page.evaluate("""() => [...document.querySelectorAll('canvas')].map(c => {
-          const a = c.getContext('2d').getImageData(0,0,c.width,c.height).data;
-          let nonblank=0;
-          for(let i=3;i<a.length;i+=4) if(a[i]>0)nonblank++;
-          return {id:c.id,nonblank};
-        })""")
-        assert all(item["nonblank"] > 0 for item in pixels)
         assert not errors, errors
         assert not [url for url in requests if url.startswith(("http:", "https:"))], requests
         page.pdf(path=str(HERE / "defense_5min.pdf"), prefer_css_page_size=True, print_background=True)
@@ -130,7 +120,7 @@ def main():
         assert all(page.locator(".slide").nth(i).is_visible() for i in range(slide_count))
         page.emulate_media(media="screen")
         browser.close()
-    report = {"checks": checks, "console_errors": errors, "canvas_pixels": pixels,
+    report = {"checks": checks, "console_errors": errors,
               "external_requests": [], "interaction_checks": "passed"}
     (OUTPUT / "checks.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     contact = Image.new("RGB", (1280, ((slide_count + 1) // 2) * 384), "#dadce1")

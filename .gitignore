@@ -4,6 +4,8 @@ __pycache__/
 .cuda_cache/
 .cupy_cache/
 .warp_cache/
+ppt_ref/
+comsol_comparison/
 
 phase_response_basis.npy
 phase_response_basis.npy.json
