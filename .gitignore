@@ -1,5 +1,6 @@
 __pycache__/
 *.py[cod]
+.venv/
 .cuda_cache/
 .cupy_cache/
 .warp_cache/

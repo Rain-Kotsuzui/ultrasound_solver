@@ -1,0 +1,658 @@
+{
+  "checks": [
+    {
+      "viewport": [
+        1600,
+        900
+      ],
+      "slide": 1,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1600,
+        900
+      ],
+      "slide": 2,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1600,
+        900
+      ],
+      "slide": 3,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1600,
+        900
+      ],
+      "slide": 4,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1600,
+        900
+      ],
+      "slide": 5,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1600,
+        900
+      ],
+      "slide": 6,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1600,
+        900
+      ],
+      "slide": 7,
+      "issues": [],
+      "chartTicks": [
+        {
+          "text": "Adam1.4689",
+          "overlap": false
+        },
+        {
+          "text": "CMA-ES29.305,762",
+          "overlap": false
+        },
+        {
+          "text": "L-SHADE41.449,453",
+          "overlap": false
+        },
+        {
+          "text": "Adam2.69350",
+          "overlap": false
+        },
+        {
+          "text": "AdamW2.93350",
+          "overlap": false
+        },
+        {
+          "text": "Lion3.35457",
+          "overlap": false
+        },
+        {
+          "text": "Nonlinear CG21.142,957",
+          "overlap": false
+        },
+        {
+          "text": "L-BFGS-B未达到—",
+          "overlap": false
+        }
+      ],
+      "ratio": 1.7777777777777777,
+      "scale": 1,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1600,
+        900
+      ],
+      "slide": 8,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "slide": 1,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1.2,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "slide": 2,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1.2,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "slide": 3,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1.2,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "slide": 4,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1.2,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "slide": 5,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1.2,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "slide": 6,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1.2,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "slide": 7,
+      "issues": [],
+      "chartTicks": [
+        {
+          "text": "Adam1.4689",
+          "overlap": false
+        },
+        {
+          "text": "CMA-ES29.305,762",
+          "overlap": false
+        },
+        {
+          "text": "L-SHADE41.449,453",
+          "overlap": false
+        },
+        {
+          "text": "Adam2.69350",
+          "overlap": false
+        },
+        {
+          "text": "AdamW2.93350",
+          "overlap": false
+        },
+        {
+          "text": "Lion3.35457",
+          "overlap": false
+        },
+        {
+          "text": "Nonlinear CG21.142,957",
+          "overlap": false
+        },
+        {
+          "text": "L-BFGS-B未达到—",
+          "overlap": false
+        }
+      ],
+      "ratio": 1.7777777777777777,
+      "scale": 1.2,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "slide": 8,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 1.2,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "slide": 1,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777779897054036,
+      "scale": 0.8533334350585937,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "slide": 2,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777779897054036,
+      "scale": 0.8533334350585937,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "slide": 3,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777779897054036,
+      "scale": 0.8533334350585937,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "slide": 4,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777779897054036,
+      "scale": 0.8533334350585937,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "slide": 5,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777779897054036,
+      "scale": 0.8533334350585937,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "slide": 6,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777779897054036,
+      "scale": 0.8533334350585937,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "slide": 7,
+      "issues": [],
+      "chartTicks": [
+        {
+          "text": "Adam1.4689",
+          "overlap": false
+        },
+        {
+          "text": "CMA-ES29.305,762",
+          "overlap": false
+        },
+        {
+          "text": "L-SHADE41.449,453",
+          "overlap": false
+        },
+        {
+          "text": "Adam2.69350",
+          "overlap": false
+        },
+        {
+          "text": "AdamW2.93350",
+          "overlap": false
+        },
+        {
+          "text": "Lion3.35457",
+          "overlap": false
+        },
+        {
+          "text": "Nonlinear CG21.142,957",
+          "overlap": false
+        },
+        {
+          "text": "L-BFGS-B未达到—",
+          "overlap": false
+        }
+      ],
+      "ratio": 1.7777779897054036,
+      "scale": 0.8533334350585937,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "slide": 8,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777779897054036,
+      "scale": 0.8533334350585937,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "slide": 1,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 0.24375,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "slide": 2,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 0.24375,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "slide": 3,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 0.24375,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "slide": 4,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 0.24375,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "slide": 5,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 0.24375,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "slide": 6,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 0.24375,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "slide": 7,
+      "issues": [],
+      "chartTicks": [
+        {
+          "text": "Adam1.4689",
+          "overlap": false
+        },
+        {
+          "text": "CMA-ES29.305,762",
+          "overlap": false
+        },
+        {
+          "text": "L-SHADE41.449,453",
+          "overlap": false
+        },
+        {
+          "text": "Adam2.69350",
+          "overlap": false
+        },
+        {
+          "text": "AdamW2.93350",
+          "overlap": false
+        },
+        {
+          "text": "Lion3.35457",
+          "overlap": false
+        },
+        {
+          "text": "Nonlinear CG21.142,957",
+          "overlap": false
+        },
+        {
+          "text": "L-BFGS-B未达到—",
+          "overlap": false
+        }
+      ],
+      "ratio": 1.7777777777777777,
+      "scale": 0.24375,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "slide": 8,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777777777777777,
+      "scale": 0.24375,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        844,
+        390
+      ],
+      "slide": 1,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777775691105768,
+      "scale": 0.43333328247070313,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        844,
+        390
+      ],
+      "slide": 2,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777775691105768,
+      "scale": 0.43333328247070313,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        844,
+        390
+      ],
+      "slide": 3,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777775691105768,
+      "scale": 0.43333328247070313,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        844,
+        390
+      ],
+      "slide": 4,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777775691105768,
+      "scale": 0.43333328247070313,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        844,
+        390
+      ],
+      "slide": 5,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777775691105768,
+      "scale": 0.43333328247070313,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        844,
+        390
+      ],
+      "slide": 6,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777775691105768,
+      "scale": 0.43333328247070313,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        844,
+        390
+      ],
+      "slide": 7,
+      "issues": [],
+      "chartTicks": [
+        {
+          "text": "Adam1.4689",
+          "overlap": false
+        },
+        {
+          "text": "CMA-ES29.305,762",
+          "overlap": false
+        },
+        {
+          "text": "L-SHADE41.449,453",
+          "overlap": false
+        },
+        {
+          "text": "Adam2.69350",
+          "overlap": false
+        },
+        {
+          "text": "AdamW2.93350",
+          "overlap": false
+        },
+        {
+          "text": "Lion3.35457",
+          "overlap": false
+        },
+        {
+          "text": "Nonlinear CG21.142,957",
+          "overlap": false
+        },
+        {
+          "text": "L-BFGS-B未达到—",
+          "overlap": false
+        }
+      ],
+      "ratio": 1.7777775691105768,
+      "scale": 0.43333328247070313,
+      "pageOverflow": false
+    },
+    {
+      "viewport": [
+        844,
+        390
+      ],
+      "slide": 8,
+      "issues": [],
+      "chartTicks": [],
+      "ratio": 1.7777775691105768,
+      "scale": 0.43333328247070313,
+      "pageOverflow": false
+    }
+  ],
+  "console_errors": [],
+  "canvas_pixels": [
+    {
+      "id": "cover-field",
+      "nonblank": 229279
+    }
+  ],
+  "external_requests": [],
+  "interaction_checks": "passed"
+}

@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>复杂环境超声相位优化 · 项目答辩</title>
+  <link rel="stylesheet" href="presentation.css">
+  <script defer src="assets/evidence.js"></script>
+  <script defer src="media.js"></script>
+  <script defer src="assets/lucide.min.js"></script>
+  <script defer src="presentation.js"></script>
+</head>
+<body>
+  <main id="viewport" aria-label="五分钟项目答辩">
+    <div id="stage">
+      <section class="slide cover active" data-title="问题与主张" data-duration="20" aria-label="第 1 页：问题与主张">
+        <header><span class="section-label"><b>01</b> 问题与主张</span><span class="running-title">超声场调控 / 项目答辩</span></header>
+        <canvas id="cover-field" width="1600" height="900" aria-label="归档优化声场的真实等幅线"></canvas>
+        <div class="cover-copy">
+          <p class="kicker">三维 Helmholtz 求解与伴随梯度</p>
+          <h1>复杂环境下的<br>超声相位优化</h1>
+          <p class="cover-description">不只补偿传播距离，<br>更要计算反射、散射与干涉。</p>
+          <div class="cover-position"><span class="tiny-line"></span> 固定场景 · 固定幅值 · 只优化相位</div>
+        </div>
+        <div class="cover-annotation"><span class="target-cross"></span> 指定焦点</div>
+        <p class="cover-caption">真实数值声场等幅线<br><span>+x 反射边界 · 归档原型切面，非实物测量</span></p>
+        <div class="cover-claims">
+          <div><span class="claim-index">I</span><h3>物理前向</h3><p>把边界与障碍物纳入声场模型</p></div>
+          <div><span class="claim-index">II</span><h3>解析反向</h3><p>从聚焦目标求全部相位梯度</p></div>
+          <div><span class="claim-index">III</span><h3>部署衔接</h3><p>面向 16 × 16 实物阵列</p></div>
+        </div>
+        <footer><span>研究问题 / 复杂边界下，几何相位不再保证聚焦</span><span class="page-number">01 / 08</span></footer>
+        <template class="speaker-note">
+          <p>我们的目标是在障碍物和反射边界存在的环境里，让超声波在指定位置叠加，并控制其他位置的旁瓣。传统几何相位只补偿距离，但复杂环境会改变干涉结构。我们用三维物理求解器描述传播，再通过解析梯度优化相位。</p>
+          <p>右侧线条来自归档声场数据，不是实物测量，也不是人工绘制的声场。该原型测试没有障碍物，只包含反射边界；障碍物是求解器支持的另一类场景。</p>
+        </template>
+      </section>
+
+      <section class="slide solver" data-title="三维物理求解器" data-duration="45" aria-label="第 2 页：三维物理求解器" hidden>
+        <header><span class="section-label"><b>02</b> 三维物理求解器</span><span class="running-title">几何 → 离散 → 求解</span></header>
+        <h2>把真实边界，写进声场方程。</h2>
+        <p class="subtitle">三维变参数 Helmholtz 模型，同时描述介质、声源与反射。</p>
+        <div class="governing-equation">
+          <math display="block"><mrow><mo>∇</mo><mo>·</mo><mo>(</mo><mfrac><mn>1</mn><mi>ρ</mi></mfrac><mo>∇</mo><mi>u</mi><mo>)</mo><mo>+</mo><mfrac><msup><mi>ω</mi><mn>2</mn></msup><mrow><mi>ρ</mi><msup><mi>c</mi><mn>2</mn></msup></mrow></mfrac><mi>u</mi><mo>=</mo><mn>0</mn></mrow></math>
+          <span class="eq-arrow">⟶</span>
+          <math display="block"><mi>A</mi><mi>u</mi><mo>=</mo><mi>b</mi><mo>(</mo><mi>φ</mi><mo>)</mo></math>
+          <p>u：复声压<br>ρ：密度　c：声速</p>
+        </div>
+        <div class="solver-columns">
+          <article>
+            <div class="step-label">01 / 几何与材料</div>
+            <h3>用 SDF 表达障碍物</h3>
+            <p>Mesh → 有符号距离场<br>→ 平滑材料参数 ρ(x)、c(x)</p>
+            <svg class="sdf-diagram" viewBox="0 0 420 130" role="img" aria-label="SDF 过渡区与平滑材料插值示意">
+              <path d="M15 104H403M33 118V12" class="diagram-axis"/>
+              <path d="M45 92H126C193 92 193 30 260 30H396" fill="none" stroke="#147b70" stroke-width="4"/>
+              <path d="M195 15V110" stroke="#a2aca8" stroke-dasharray="5 5"/>
+              <text x="47" y="69">介质 A</text><text x="288" y="64">介质 B</text><text x="164" y="128" class="small-svg">过渡区</text>
+            </svg>
+            <p class="detail">避免硬阈值造成材料场离散跳变。</p>
+          </article>
+          <article>
+            <div class="step-label">02 / 空间离散</div>
+            <h3>7 点有限差分模板</h3>
+            <p>六个相邻网格点耦合<br>组装稀疏复数系统</p>
+            <svg class="stencil-diagram" viewBox="0 0 420 130" role="img" aria-label="中心点与六个邻点组成的七点模板">
+              <path d="M105 70H305M205 12V126M154 111L256 29" stroke="#a9afb7" stroke-width="2"/>
+              <g fill="#ffffff" stroke="#304cd2" stroke-width="2.5"><circle cx="105" cy="70" r="8"/><circle cx="305" cy="70" r="8"/><circle cx="205" cy="12" r="8"/><circle cx="205" cy="126" r="8"/><circle cx="154" cy="111" r="8"/><circle cx="256" cy="29" r="8"/></g>
+              <circle cx="205" cy="70" r="12" fill="#304cd2"/>
+              <text x="228" y="90" class="small-svg">uᵢⱼₖ</text>
+            </svg>
+            <p class="detail">阵面 Dirichlet · 开放 Sommerfeld<br>刚性反射边界</p>
+          </article>
+          <article>
+            <div class="step-label">03 / 边界凝聚</div>
+            <h3>消元后，保留复对称结构</h3>
+            <p>消去指定值与开放边界行<br>cuDSS 分解，再回代恢复全场</p>
+            <div class="schur-equation">
+              <math display="block"><mi>S</mi><mo>=</mo><msub><mi>A</mi><mrow><mi>r</mi><mi>r</mi></mrow></msub><mo>−</mo><msub><mi>A</mi><mrow><mi>r</mi><mi>e</mi></mrow></msub><msubsup><mi>A</mi><mrow><mi>e</mi><mi>e</mi></mrow><mrow><mo>−</mo><mn>1</mn></mrow></msubsup><msub><mi>A</mi><mrow><mi>e</mi><mi>r</mi></mrow></msub></math>
+              <span>r：保留自由度　e：消去自由度</span>
+            </div>
+            <p class="detail">这是离散系统的等价变换，<br>不代表消除了网格离散误差。</p>
+          </article>
+        </div>
+        <div class="bottom-thesis"><span>计算策略</span><strong>同一场景只分解一次，再复用多个声源右端项。</strong></div>
+        <footer><span>实现 / Warp 稀疏组装 · 边界凝聚 · cuDSS 混合直接求解</span><span class="page-number">02 / 08</span></footer>
+        <template class="speaker-note">
+          <p>首先将几何转成 SDF，用平滑插值构造密度和声速场。变参数 Helmholtz 方程通过七点差分离散成 Au=b，边界包括阵元指定复声压、开放边界和刚性反射。</p>
+          <p>我们对指定值与开放边界行进行凝聚，保留系统呈复对称结构，交给 cuDSS 分解，最后回代边界。这是离散方程的等价消元，不是另一个近似物理模型。对固定场景可以复用分解，为各个阵元求响应基，减少后续优化开销。</p>
+        </template>
+      </section>
+
+      <section class="slide gradient" data-title="响应基与伴随梯度" data-duration="60" aria-label="第 3 页：响应基与伴随梯度" hidden>
+        <header><span class="section-label"><b>03</b> 响应基与伴随梯度</span><span class="running-title">前向合成 / 反向传播</span></header>
+        <h2>一次反向传播，得到全部相位梯度。</h2>
+        <p class="subtitle">场景固定时，非线性只留在相位参数与目标函数中。</p>
+        <div class="basis-line">
+          <span>预计算</span><math><mi>G</mi><mo>=</mo><msup><mi>A</mi><mrow><mo>−</mo><mn>1</mn></mrow></msup><mi>B</mi></math>
+          <p>B 为单位阵元激励矩阵；几何、材料、边界不变时复用 G。</p>
+        </div>
+        <div class="gradient-halves">
+          <article class="forward">
+            <div class="step-label">前向 / 相位 → 声场 → 目标</div>
+            <math class="main-math" display="block"><mi>z</mi><mo>=</mo><msup><mi>e</mi><mrow><mi>i</mi><mi>φ</mi></mrow></msup><mspace width="1em"/><mi>u</mi><mo>=</mo><mi>G</mi><mi>z</mi></math>
+            <h3>聚焦增强，旁瓣抑制</h3>
+            <math class="loss-math" display="block"><mi>L</mi><mo>=</mo><mo>−</mo><mi>α</mi><mover><msub><mrow><mo>|</mo><mi>u</mi><mo>|</mo></mrow><mi>T</mi></msub><mo>¯</mo></mover><mo>+</mo><mi>β</mi><mi>τ</mi><mi>log</mi><mo>(</mo><mfrac><mn>1</mn><mrow><mo>|</mo><mi>Ω</mi><mo>|</mo></mrow></mfrac><munder><mo>∑</mo><mrow><mi>j</mi><mo>∈</mo><mi>Ω</mi></mrow></munder><msup><mi>e</mi><mrow><mo>|</mo><msub><mi>u</mi><mi>j</mi></msub><mo>|</mo><mo>/</mo><mi>τ</mi></mrow></msup><mo>)</mo></math>
+            <p class="detail">T：目标点集合；Ω：排除目标邻域和源面近场的背景。<br>背景项是平滑最大值，τ 控制平滑程度。</p>
+          </article>
+          <article class="backward">
+            <div class="step-label">反向 / 目标 → 复场 → 相位</div>
+            <math class="definition-math" display="block"><mi>d</mi><mi>L</mi><mo>=</mo><mi>Re</mi><mo>(</mo><msup><mi>g</mi><mi>H</mi></msup><mi>d</mi><mi>u</mi><mo>)</mo><mspace width="1em"/><mi>q</mi><mo>=</mo><msup><mi>G</mi><mi>H</mi></msup><mi>g</mi></math>
+            <math class="main-math grad-result" display="block"><msub><mo>∇</mo><mi>φ</mi></msub><mi>L</mi><mo>=</mo><mi>Im</mi><mo>(</mo><mover><mi>z</mi><mo>¯</mo></mover><mo>⊙</mo><mi>q</mi><mo>)</mo></math>
+            <p class="adjoint-identity">等价于伴随系统</p>
+            <math class="definition-math" display="block"><msup><mi>A</mi><mi>H</mi></msup><mi>λ</mi><mo>=</mo><mi>g</mi><mspace width="1em"/><mi>q</mi><mo>=</mo><msup><mi>B</mi><mi>H</mi></msup><mi>λ</mi></math>
+            <p class="detail">实际迭代直接调用响应基 VJP；<br>无需逐相位差分，也无需每步重新求解 PDE。</p>
+          </article>
+        </div>
+        <div class="gradient-bottom">
+          <div><span>中心差分</span><strong>2N 次场合成</strong></div>
+          <div><span>解析 VJP</span><strong>1 次合成 + 1 次反传</strong></div>
+          <div class="update-rule"><span>更新</span><strong>Adam → 新相位 → 再合成</strong></div>
+        </div>
+        <footer><span>复杂度比较不含响应基预计算；G 的存储与乘法仍随网格规模增长。</span><span class="page-number">03 / 08</span></footer>
+        <template class="speaker-note">
+          <p>固定场景中 A 不变，我们预先构建 G=A⁻¹B。在线给定相位，只需计算 u=G exp(iφ)。损失由负目标振幅与背景平滑最大值组成，实现焦点增强和旁瓣抑制。</p>
+          <p>定义复场 cotangent g 满足 dL=Re(gᴴdu)，通过 q=Gᴴg 和 Im(conj(z)q) 就能得到所有相位梯度。这等价于伴随系统 Aᴴλ=g，但由于响应基已建立，不需要每步重新求解 PDE。中心差分需要 2N 次场合成，VJP 是一次场合成和一次反向乘法。最后由 Adam 更新相位。优势来自对物理线性结构的利用，而不是宣称 Adam 是新的优化算法。</p>
+        </template>
+      </section>
+
+      <section class="slide validation" data-title="效果对比（待补图）" data-duration="30" aria-label="第 4 页：效果对比" hidden>
+        <header><span class="section-label"><b>04</b> 效果对比</span><span class="running-title">同一评估场景 / 两种相位解</span></header>
+        <h2>显式建模障碍物，能否改善实际聚焦？</h2>
+        <p class="subtitle">相同目标、激励幅值与评估场景；对比忽略障碍物的 baseline 与我们的方法。</p>
+        <div class="effect-comparison">
+          <figure>
+            <figcaption><b>现有 baseline</b><span>求相位时不建模障碍物</span></figcaption>
+            <div class="effect-slot" id="baseline-effect"><span class="slot-label">效果图待补</span></div>
+          </figure>
+          <figure>
+            <figcaption><b>我们的方法</b><span>基于含障碍物的 Helmholtz 声场优化</span></figcaption>
+            <div class="effect-slot" id="ours-effect"><span class="slot-label">效果图待补</span></div>
+          </figure>
+        </div>
+        <div class="effect-evaluation"><span>对比口径</span><p>同一切面、坐标、单位与色标；核验目标振幅、背景峰值和焦点位置。</p></div>
+        <p class="effect-comsol">独立物理核验：已开展 COMSOL 交叉验证，原始对照图与定量统计待补，不预设误差结论。</p>
+        <footer><span>图片尚未提供；baseline 名称及具体实验条件待随图确认。</span><span class="page-number">04 / 08</span></footer>
+        <template class="speaker-note">
+          <p>这一页预留真实效果图。左侧 baseline 求相位时忽略障碍物，右侧是我们的方法；两组相位最终必须在同一个含障碍物场景中复算或实测。否则差异可能来自评估场景不同，而非方法本身。还需要统一切面、色标与单位。</p>
+          <p>补图后根据实际证据讲述目标振幅、旁瓣和焦点偏移，不提前声称收益大小。COMSOL 是独立物理核验，不能将两种方法的效果比较直接当作求解器误差验证。</p>
+        </template>
+      </section>
+
+      <section class="slide loss-slide" data-title="算法 Loss 对比" data-duration="30" aria-label="第 5 页：算法 Loss 对比" hidden>
+        <header><span class="section-label"><b>05</b> 算法 Loss 对比</span><span class="running-title">原始实验图 / 全部九种方法</span></header>
+        <h2>看完整优化轨迹，而不只看终点。</h2>
+        <div class="loss-layout">
+          <figure class="loss-figure"><img src="assets/algorithm_loss_dashboard.png" width="2046" height="1146" alt="原始算法 Loss 对比图：九种方法的原始损失、滑动中位数和历史最优值"></figure>
+          <aside class="loss-reading">
+            <div><span class="step-label">坐标与图例</span><h3>越低越好</h3><p>横轴：场评估次数<br>纵轴：focal_contrast Loss</p></div>
+            <div><span class="step-label">曲线含义</span><p><b>实线</b>　滑动中位数<br><b>虚线</b>　历史最优值<br><b>浅线</b>　原始 Loss</p></div>
+            <div><span class="step-label">观察</span><p>adjoint（Adam）用较少场评估进入低损失区域。</p><p class="detail">曲线描述评估效率；墙钟速度另看共同质量门槛。</p></div>
+          </aside>
+        </div>
+        <footer><span>来源 / algorithm_comparison 的 loss_dashboard.png · 12 × 12 原型 · 原图完整保留</span><span class="page-number">05 / 08</span></footer>
+        <template class="speaker-note">
+          <p>这里直接展示之前保存的九种算法总 Loss 对比图。横轴是场评估次数，不是时间。实线显示当前损失的滑动中位数，浅线保留搜索波动，虚线显示历史最优。解析梯度方法较快进入低 Loss 区域，黑盒方法仍需大量探索。解析几何和响应对齐是单次计算，所以用点表示。</p>
+          <p>滑动中位数是轨迹平滑，不是跨随机种子平均；浅色波动也不是置信区间。本图只能支持这一场景的观察，不能推断通用算法优劣。</p>
+        </template>
+      </section>
+
+      <section class="slide loss-slide" data-title="优化器消融曲线" data-duration="25" aria-label="第 6 页：优化器消融曲线" hidden>
+        <header><span class="section-label"><b>06</b> 优化器消融曲线</span><span class="running-title">同一解析梯度 / 五种更新规则</span></header>
+        <h2>固定物理梯度，检验更新器的影响。</h2>
+        <div class="loss-layout">
+          <figure class="loss-figure"><img src="assets/ablation_loss_dashboard.png" width="2046" height="1146" alt="原始优化器消融 Loss 曲线：L-BFGS-B、Adam、AdamW、Lion、非线性共轭梯度"></figure>
+          <aside class="loss-reading">
+            <div><span class="step-label green">控制变量</span><h3>只替换更新器</h3><p>相同场景、初相位、目标函数和解析 VJP。</p></div>
+            <div><span class="step-label green">比较对象</span><p>L-BFGS-B · Adam<br>AdamW · Lion<br>非线性共轭梯度</p></div>
+            <div><span class="step-label green">解读边界</span><p>比较早期下降与最终平台，不把相近曲线强行解释为显著差异。</p><p class="detail">实线：滑动中位数；虚线：历史最优；浅线：原始 Loss。</p></div>
+          </aside>
+        </div>
+        <footer><span>来源 / gradient_ablation 的 loss_dashboard.png · 横轴为场评估次数 · 非迭代次数或秒数</span><span class="page-number">06 / 08</span></footer>
+        <template class="speaker-note">
+          <p>消融实验固定相同解析梯度，只更换五种更新器。曲线展示了不同更新规则的早期下降和最终平台。Adam、AdamW、Lion 的部分轨迹相近，所以不只根据肉眼判断哪条曲线更低；下一页用共同质量门槛统计达标时间和次数。</p>
+        </template>
+      </section>
+
+      <section class="slide experiments" data-title="共同质量数值对比" data-duration="40" aria-label="第 7 页：共同质量数值对比" hidden>
+        <header><span class="section-label"><b>07</b> 共同质量数值对比</span><span class="running-title">共同质量门槛 / 首次达标代价</span></header>
+        <h2>同一质量，比较所需代价。</h2>
+        <p class="subtitle">不比较各自停止时间；只统计首次满足 L ≤ L* 的时间与场评估次数。</p>
+        <div class="experiment-panels">
+          <article>
+            <div class="chart-heading"><span class="step-label">A / 优化算法比较</span><span class="threshold">L* = −1593.498</span></div>
+            <h3>解析梯度与两类进化基线</h3>
+            <div id="algorithm-chart" class="metric-chart" aria-label="算法达到同一质量门槛的时间及评估次数"></div>
+            <div class="result-callout"><strong id="speed-ratio">28.4<span>×</span></strong><p>相对 L-SHADE 的达标加速<br><span>仅此门槛、此场景、此归档运行</span></p></div>
+          </article>
+          <article>
+            <div class="chart-heading"><span class="step-label green">B / 更新器消融</span><span class="threshold">L* = −1860</span></div>
+            <h3>同一解析 VJP，只换更新规则</h3>
+            <div id="ablation-chart" class="metric-chart" aria-label="五种更新器达到高质量门槛的时间及评估次数"></div>
+            <p class="ablation-conclusion">Adam 在本次消融中最早达标。</p>
+          </article>
+        </div>
+        <div class="experiment-footnotes">
+          <p><b>实验口径</b> 12 × 12，41³ 网格，+x 反射，单种子 0；相同场景、初相位与响应基。</p>
+          <p>60 s / 15,000 次评估上限；时间为优化阶段日志，不含响应基构建。两图来自不同实验运行，不能横向混用秒数。</p>
+        </div>
+        <footer><span>来源 / 两组 quality_summary.csv · 原型单次结果，不构成跨场景统计结论</span><span class="page-number">07 / 08</span></footer>
+        <template class="speaker-note">
+          <p>我们使用共同质量门槛，避免把后期精修和停滞确认误认为达到可用解的时间。左图在同一门槛下，Adam 约 1.46 秒、89 次评估，CMA-ES 29.30 秒，L-SHADE 41.44 秒。相对 L-SHADE，这次运行的达标时间约快 28.4 倍。</p>
+          <p>右图固定解析 VJP，只替换更新器，在更高质量门槛 −1860 比较。Adam 2.69 秒，AdamW 接近，Lion 和非线性共轭梯度更慢，L-BFGS-B 未达到。两图是独立实验，不能混用时间。它们支持当前选择解析梯度加 Adam，但单场景、单种子不能推出普遍最优；多种子和 16×16 复测仍需补充。</p>
+        </template>
+      </section>
+
+      <section class="slide hardware" data-title="硬件部署与结论" data-duration="25" aria-label="第 8 页：硬件部署与结论" hidden>
+        <header><span class="section-label"><b>08</b> 硬件部署与结论</span><span class="running-title">16 × 16 阵列 / 本地 S/C 架构</span></header>
+        <h2>让数值解，成为可验证的声场。</h2>
+        <p class="subtitle">实物阵列已具备；下一步是逐阵元标定与闭环测量。</p>
+        <div class="hardware-layout">
+          <div class="array-panel">
+            <div class="array-drawing" id="array-drawing" aria-label="16乘16阵列拓扑示意，非实物照片"></div>
+            <div class="array-dimension">16 × 16</div>
+            <div class="array-stats"><span><b>256</b> 通道</span><span><b>32</b> 相位档</span><span><b>40</b> kHz</span></div>
+            <p class="detail">阵列拓扑示意，非实物照片</p>
+          </div>
+          <div class="deployment-panel">
+            <div class="deployment-step"><span>01</span><div><h3>优化进程 / Client</h3><p>导出最优连续相位 φ，提交给本地服务</p></div></div>
+            <div class="deployment-step"><span>02</span><div><h3>校准与编码 / Service</h3><p>AcousticField 通道映射、逐阵元偏移 → 32 档量化</p></div></div>
+            <div class="deployment-step"><span>03</span><div><h3>硬件下发 / Ultraino</h3><p>SimpleFPGA 协议 → 现有板端固件 → 阵列</p></div></div>
+            <div class="deployment-step pending"><span>04</span><div><h3>声场测量 / 闭环验收</h3><p>几何聚焦复核 → 优化相位实测 → 焦点与旁瓣比较</p></div></div>
+          </div>
+        </div>
+        <div class="closing-statement"><span>核心贡献</span><strong>以三维物理场为约束，用解析梯度求相位。</strong><p>数值优化已具备；标定后的实物闭环仍待验证。</p></div>
+        <footer><span>部署边界 / 未完成标定前，不解锁真实优化相位下发。</span><span class="page-number">08 / 08</span></footer>
+        <template class="speaker-note">
+          <p>目前面向 16×16 实物阵列部署。优化进程只提交连续相位，本地服务负责通道映射、标定偏移和 32 档量化，再通过 Ultraino 协议发送给现有固件。</p>
+          <p>必须区分软件接口具备与实物闭环完成。逐阵元标定、几何焦点复核及优化后的声场测量仍需完成。我们的核心贡献是把三维物理模型和解析相位梯度连接起来，并提供一条可校准、可测量的部署路线。</p>
+        </template>
+      </section>
+    </div>
+  </main>
+
+  <nav id="controls" aria-label="演示控制">
+    <button id="previous" type="button" aria-label="上一页" title="上一页（←）"><i data-lucide="arrow-left"></i></button>
+    <span id="slide-count" aria-live="polite">01 / 08</span>
+    <button id="next" type="button" aria-label="下一页" title="下一页（→）"><i data-lucide="arrow-right"></i></button>
+    <span class="control-divider"></span>
+    <button id="overview-button" type="button" aria-label="章节目录" title="章节目录（O）"><i data-lucide="layout-grid"></i></button>
+    <button id="notes-button" type="button" aria-label="演讲备注" title="演讲备注（N）"><i data-lucide="notebook-pen"></i></button>
+    <button id="fullscreen-button" type="button" aria-label="全屏" title="全屏（F）"><i data-lucide="maximize"></i></button>
+    <button id="print-button" type="button" aria-label="打印为 PDF" title="打印为 PDF"><i data-lucide="printer"></i></button>
+  </nav>
+  <dialog id="overview-dialog" aria-labelledby="overview-title"><div class="dialog-heading"><h2 id="overview-title">答辩目录</h2><button type="button" class="close-dialog" aria-label="关闭目录"><i data-lucide="x"></i></button></div><ol id="overview-list"></ol></dialog>
+  <dialog id="notes-dialog" aria-labelledby="notes-title"><div class="dialog-heading"><h2 id="notes-title">演讲备注</h2><button type="button" class="close-dialog" aria-label="关闭备注"><i data-lucide="x"></i></button></div><div id="notes-content"></div><p id="notes-duration"></p></dialog>
+  <p id="status" role="status"></p>
+  <noscript>本演示需要启用 JavaScript，或使用附带 PDF 阅读。</noscript>
+</body>
+</html>
