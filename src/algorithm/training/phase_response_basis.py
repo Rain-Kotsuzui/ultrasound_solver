@@ -5,6 +5,10 @@ from dataclasses import asdict
 from pathlib import Path
 
 os.environ.setdefault("CUPY_CACHE_IN_MEMORY", "1")
+from algorithm.cuda_runtime_paths import add_cuda_dll_directories
+
+add_cuda_dll_directories()
+
 import cupy as cp
 import numpy as np
 

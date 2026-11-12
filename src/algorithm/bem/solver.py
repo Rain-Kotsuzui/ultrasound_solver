@@ -23,6 +23,10 @@ obstacle material (rho 1250, c 2200) differs from a rigid body by ~0.1 %.
 from dataclasses import dataclass
 import time
 
+from algorithm.cuda_runtime_paths import add_cuda_dll_directories
+
+add_cuda_dll_directories()
+
 import cupy as cp
 import numpy as np
 

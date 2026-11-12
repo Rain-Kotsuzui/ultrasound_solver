@@ -3,7 +3,6 @@
 import argparse
 import json
 from pathlib import Path
-import sys
 import time
 
 import numpy as np
@@ -207,11 +206,6 @@ def execute(cfg):
     backend = str(cfg.solver.get("backend", "")).lower()
     if backend == "bem":
         from algorithm.bem.scene_solver import BemSceneSolver as Solver
-    elif backend == "neural_bem":
-        repository_root = str(Path(__file__).resolve().parents[1])
-        if repository_root not in sys.path:
-            sys.path.insert(0, repository_root)
-        from nerual.backend import NeuralBemSceneSolver as Solver
     else:
         from algorithm.solvers import HelmholtzDirectSolver as Solver
 

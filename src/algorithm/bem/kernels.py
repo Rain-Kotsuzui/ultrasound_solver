@@ -19,6 +19,10 @@ the double-layer self term vanishes on a flat element and the hypersingular self
 term is a Hadamard finite part.
 """
 
+from algorithm.cuda_runtime_paths import add_cuda_dll_directories
+
+add_cuda_dll_directories()
+
 import cupy as cp
 
 _SOURCE = r"""

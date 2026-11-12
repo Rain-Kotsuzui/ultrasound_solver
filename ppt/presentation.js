@@ -12,7 +12,7 @@ const chapterLabels = {
   method: "02 / 建模与算法",
   evidence: "03 / 数值证据",
   hardware: "04 / 实物闭环",
-  closing: "05 / 结论",
+  closing: "05 / 总结与致谢",
 };
 let current = 0;
 let controlsTimer;

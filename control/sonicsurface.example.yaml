@@ -2,7 +2,7 @@ schema_version: 1
 name: "sonicsurface-local"
 
 serial:
-  port: "COM4"
+  port: "COM5"
   baudrate: 230400
   # 写超时后重开串口的等待秒数：Arduino 转发会在打开串口时复位（约 2 秒），
   # USB 转 TTL 适配器不会复位，可改为 0.2。

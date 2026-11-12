@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>复杂环境超声相位优化 · 项目答辩</title>
+  <title>基于可微物理的抗遮挡多焦点超声触觉全息渲染框架 · 项目答辩</title>
   <link rel="stylesheet" href="presentation.css">
   <script defer src="assets/evidence.js"></script>
   <script defer src="assets/lucide.min.js"></script>
@@ -13,13 +13,14 @@
 <body>
   <main id="viewport" aria-label="五分钟项目答辩">
     <div id="stage">
-      <section class="slide cover active" data-title="HaptiField" data-duration="15" data-chapter="opening" aria-label="第 1 页：项目首页">
-        <img class="cover-photo" src="assets/sonicsurface_hardware.jpg" width="2000" height="1125" alt="项目使用的 SonicSurface 16 乘 16 超声相控阵实物">
+      <section class="slide cover active" data-title="项目首页" data-duration="15" data-chapter="opening" aria-label="第 1 页：项目首页">
+        <img class="cover-photo" src="images/sonicsurface_hardware.jpg" width="2000" height="1125" alt="项目使用的 SonicSurface 16 乘 16 超声相控阵实物">
         <div class="cover-tint" aria-hidden="true"></div>
         <div class="cover-copy">
-          <p class="kicker">HAPTIFIELD · 超声场逆向设计</p>
-          <h1>复杂环境中的<br>可编程超声场</h1>
-          <p class="cover-description">三维 Helmholtz 求解<br>解析相位梯度 · SonicSurface 实物阵列</p>
+          <p class="kicker">超声触觉 · 可微物理 · 全息渲染</p>
+          <h1>基于可微物理的<br>抗遮挡多焦点超声触觉<br>全息渲染框架</h1>
+          <p class="cover-description">三维 Helmholtz 求解 · 解析相位优化 · SonicSurface 实物阵列</p>
+          <p class="cover-members">小组成员 / 苏世瑞 · 吴宇恒</p>
         </div>
         <div class="cover-specs">
           <span>16 × 16</span>
@@ -27,9 +28,9 @@
           <span>40 kHz</span>
         </div>
         <p class="cover-thesis">让环境进入模型，让相位来自物理。</p>
-        <footer><span>三维建模 → 声场求解 → 相位优化 → 硬件执行</span><span class="page-number">01 / 17</span></footer>
+        <footer><span>三维建模 → 声场求解 → 相位优化 → 硬件执行</span><span class="page-number">01 / 18</span></footer>
         <template class="speaker-note">
-          <p>这是我们正在使用的 SonicSurface 16×16 超声相控阵。项目目标是让这 256 个阵元在存在反射、散射和材料变化的环境中，仍能在指定位置形成可控声场。</p>
+          <p>各位老师好，我们是苏世瑞和吴宇恒。我们的项目是“基于可微物理的抗遮挡多焦点超声触觉全息渲染框架”。这是项目使用的 SonicSurface 16×16 超声相控阵，目标是让这 256 个阵元在存在反射、散射和材料变化的环境中，仍能在指定位置形成可控声场。</p>
           <p>我们的工作贯穿四层：把几何写进三维物理模型，高效求解复声压场，用解析梯度反推出阵元相位，最后把相位经过标定和量化送到真实阵列。</p>
         </template>
       </section>
@@ -43,15 +44,15 @@
           <article><span>02</span><div><h3>建模与算法</h3><p>技术路线 · Helmholtz · COMSOL · 响应基 · VJP</p></div><b>06–11</b></article>
           <article><span>03</span><div><h3>数值证据</h3><p>声场效果 · 算法比较 · 更新器消融 · 共同门槛</p></div><b>12–15</b></article>
           <article><span>04</span><div><h3>实物闭环</h3><p>SonicSurface 阵列 · 相位标定 · FPGA 下发</p></div><b>16</b></article>
-          <article><span>05</span><div><h3>结论</h3><p>已完成链路与下一步验证</p></div><b>17</b></article>
+          <article><span>05</span><div><h3>总结与致谢</h3><p>完整链路与项目结论</p></div><b>17</b></article>
         </div>
-        <footer><span>主线 / 场景建模 → 声场求解 → 相位优化 → 硬件执行</span><span class="page-number">02 / 17</span></footer>
+        <footer><span>主线 / 场景建模 → 声场求解 → 相位优化 → 硬件执行</span><span class="page-number">02 / 18</span></footer>
         <template class="speaker-note">
           <p>接下来分五部分。先说明可编程超声场的应用价值和复杂环境问题；再介绍三维求解器、COMSOL 交叉验证、响应基和 VJP；随后给出声场效果与算法实验；最后展示 SonicSurface 实物和相位标定，并总结项目贡献。</p>
         </template>
       </section>
 
-      <section class="slide vision" data-title="应用愿景" data-duration="20" data-chapter="context" aria-label="第 3 页：应用愿景" hidden>
+      <section class="slide vision" data-title="应用愿景" data-duration="15" data-chapter="context" aria-label="第 3 页：应用愿景" hidden>
         <header><span class="section-label"><b>03</b> 应用愿景</span><span class="running-title">01 / 背景与问题</span></header>
         <h2>超声触觉，把“远程”变成可感知。</h2>
         <p class="subtitle">无需穿戴的空间触觉，为数字内容、远程操作和公共交互增加一条触觉通道。</p>
@@ -85,7 +86,7 @@
           <span>共同需求</span>
           <strong>人、工具与设备进入声场后，触觉仍准确落在目标位置。</strong>
         </div>
-        <footer><span>价值主线 / 无接触 · 空间化 · 可编程 · 可远程传递</span><span class="page-number">03 / 17</span></footer>
+        <footer><span>价值主线 / 无接触 · 空间化 · 可编程 · 可远程传递</span><span class="page-number">03 / 18</span></footer>
         <template class="speaker-note">
           <p>可编程超声场提供的是一种无需佩戴设备的空间触觉通道。它可以让用户触摸 XR 中的虚拟对象，也可以把远程机器人接触到的信息反馈到操作者手上，增强遥操作的临场感。</p>
           <p>同一能力还能用于医疗和洁净环境中的无接触确认，以及空间导航、无障碍提示和操作引导。四类场景共享一个关键要求：当人、工具和周围设备进入传播空间后，焦点仍要准确落到目标位置。</p>
@@ -98,20 +99,20 @@
         <p class="subtitle">相控阵通过控制阵元相位，在空间中塑造压力焦点、轨迹与图案。</p>
         <div class="application-gallery">
           <figure>
-            <img src="assets/literature/hoshi_2010_fig1_2.png" width="1030" height="390" alt="Hoshi 2010 非接触超声触觉装置与阵列">
+            <img src="images/hoshi_2010_fig1_2.png" width="1030" height="390" alt="Hoshi 2010 非接触超声触觉装置与阵列">
             <figcaption><span>非接触触觉</span><b>裸手感知空间中的虚拟触点</b><small>Hoshi et al., IEEE TOH, 2010</small></figcaption>
           </figure>
           <figure>
-            <img src="assets/literature/gspat_2020_fig1.png" width="580" height="315" alt="GS-PAT 多点触觉与体积显示应用">
+            <img src="images/gspat_2020_fig1.png" width="580" height="315" alt="GS-PAT 多点触觉与体积显示应用">
             <figcaption><span>动态空间内容</span><b>多焦点触觉与体积显示</b><small>Martinez Plasencia et al., ACM TOG, 2020</small></figcaption>
           </figure>
           <figure>
-            <img src="assets/literature/diffpat_2021_fig1.png" width="1100" height="610" alt="Diff-PAT 可微声学全息优化流程">
+            <img src="images/diffpat_2021_fig1.png" width="1100" height="610" alt="Diff-PAT 可微声学全息优化流程">
             <figcaption><span>声学全息</span><b>由目标场反求阵元驱动</b><small>Fushimi et al., Scientific Reports, 2021</small></figcaption>
           </figure>
         </div>
         <div class="application-strip"><b>应用外延</b><span>XR 触觉</span><span>无菌交互</span><span>声悬浮与操控</span><span>定向声场</span></div>
-        <footer><span>综述 / Rakkolainen et al., IEEE TOH 2021 · DOI 10.1109/TOH.2020.3018754</span><span class="page-number">04 / 17</span></footer>
+        <footer><span>综述 / Rakkolainen et al., IEEE TOH 2021 · DOI 10.1109/TOH.2020.3018754</span><span class="page-number">04 / 18</span></footer>
         <template class="speaker-note">
           <p>空气超声相控阵把触觉和物体操控从实体接触中解耦。早期工作证明了裸手非接触触觉，随后发展到多点触觉、体积显示和任意声场图案；可微声学全息进一步把目标声场直接连接到阵元相位。</p>
           <p>这些能力可服务 XR 交互、无菌界面、声悬浮、微粒操控和定向声场。它们共享同一个核心问题：如何让大量阵元协同，在三维空间形成设计者希望的声压分布。</p>
@@ -124,53 +125,40 @@
         <p class="subtitle">障碍物、反射面和手部会改变传播路径，也会改变最优相位。</p>
         <div class="literature-grid">
           <figure>
-            <img src="assets/literature/hirayama_2022_fig1.png" width="1190" height="325" alt="任意散射物环境中的高速声学全息">
+            <img src="images/hirayama_2022_fig1.png" width="1190" height="325" alt="任意散射物环境中的高速声学全息">
             <figcaption><b>显式散射建模</b><span>任意静态散射体中的高速声学全息</span><small>Hirayama et al., Science Advances, 2022</small></figcaption>
           </figure>
           <figure>
-            <img src="assets/literature/chen_2023_fig2.png" width="1260" height="1000" alt="存在障碍物时的声压场重建结果">
-            <figcaption><b>实测通道重建</b><span>由测量反馈恢复障碍环境中的目标场</span><small>Chen et al., IEEE TOH, 2023</small></figcaption>
+            <img src="images/chen_2023_fig2.png" width="1260" height="1000" alt="存在障碍物时的声压场重建结果">
+            <figcaption><b>黑箱测量优化</b><span>以目标点实测声压搜索阵元相位</span><small>Chen et al., IEEE TOH, 2023</small></figcaption>
           </figure>
           <figure>
-            <img src="assets/literature/mukherjee_2025_fig1.png" width="1270" height="430" alt="手部散射建模与声压对比">
+            <img src="images/mukherjee_2025_fig1.png" width="1270" height="430" alt="手部散射建模与声压对比">
             <figcaption><b>手部散射与感知</b><span>把直接路径与散射路径共同纳入聚焦</span><small>Mukherjee et al., CHI EA, 2025</small></figcaption>
           </figure>
         </div>
+        <p class="literature-summary">Hirayama 在已知静态几何下用 BEM 显式预计算散射，实现高速声悬浮；Chen 不建立障碍物模型，而以目标点实测声压通过贝叶斯与贪心搜索迭代相位；Mukherjee 将已知手部的直接声与散射声共同纳入 BEM 聚焦，并验证触觉声压提升。三者分别代表几何建模、测量反馈和人体散射，共同说明真实环境必须进入相位求解。</p>
         <div class="research-position">
           <span>本项目</span>
           <strong>已知几何 / SDF → 异质三维 Helmholtz → 解析相位优化 → 实物阵列</strong>
         </div>
-        <footer><span>DOI / 10.1126/sciadv.abn7614 · 10.1109/TOH.2023.3309975 · 10.1145/3706599.3720287</span><span class="page-number">05 / 17</span></footer>
+        <footer><span>DOI / 10.1126/sciadv.abn7614 · 10.1109/TOH.2023.3309975 · 10.1145/3706599.3720287</span><span class="page-number">05 / 18</span></footer>
         <template class="speaker-note">
-          <p>已有研究已经开始处理真实环境。Hirayama 等显式建模任意散射体，Chen 等通过测量重建未知障碍物下的等效通道，Mukherjee 等进一步研究手部散射与触觉感知。</p>
+          <p>已有研究已经从三条路线处理真实环境。Hirayama 等在已知静态几何下使用 BEM 显式预计算散射，实现高速声悬浮；Chen 等不建立障碍物模型，而把系统视作黑箱，以目标点实测声压通过贝叶斯和贪心搜索迭代相位；Mukherjee 等将已知手部产生的直接声与散射声共同纳入 BEM 聚焦，并验证了触觉声压提升。</p>
           <p>我们的路线针对几何与材料信息可获得的场景：用 SDF 把障碍物写入异质三维 Helmholtz 方程，再用解析梯度求相位，并连接到 SonicSurface 实物阵列。这样既能预测完整三维场，也能追踪每个结果来自哪一种物理机制。</p>
         </template>
       </section>
 
-      <section class="slide architecture" data-title="技术路线" data-duration="10" data-chapter="method" aria-label="第 6 页：技术路线" hidden>
+      <section class="slide architecture" data-title="技术路线" data-duration="15" data-chapter="method" aria-label="第 6 页：技术路线" hidden>
         <header><span class="section-label"><b>06</b> 技术路线</span><span class="running-title">02 / 建模与算法</span></header>
-        <h2>把场景、求解、优化与硬件连成一条链。</h2>
-        <p class="subtitle">输入是几何和目标点，输出是可下发到阵列的 256 路相位。</p>
-        <div class="architecture-path">
-          <article><i data-lucide="scan-3d"></i><span>01</span><h3>场景表示</h3><p>Mesh / SDF<br>介质与边界</p></article>
-          <b>→</b>
-          <article><i data-lucide="waves"></i><span>02</span><h3>物理离散</h3><p>变参数 Helmholtz<br>7 点差分</p></article>
-          <b>→</b>
-          <article><i data-lucide="cpu"></i><span>03</span><h3>响应基</h3><p>边界凝聚<br>cuDSS 分解复用</p></article>
-          <b>→</b>
-          <article><i data-lucide="target"></i><span>04</span><h3>相位优化</h3><p>focal_contrast<br>VJP + Adam</p></article>
-          <b>→</b>
-          <article><i data-lucide="radio-tower"></i><span>05</span><h3>硬件执行</h3><p>标定补偿<br>32 档量化</p></article>
-        </div>
-        <div class="architecture-equations">
-          <div><span>离线建立场景响应</span><math display="block"><mi>A</mi><mi>G</mi><mo>=</mo><mi>B</mi></math></div>
-          <div><span>在线合成与反向传播</span><math display="block"><mi>u</mi><mo>=</mo><mi>G</mi><mi>exp</mi><mo>(</mo><mi>i</mi><mi>φ</mi><mo>)</mo><mspace width="1em"/><mi>z</mi><mo>=</mo><msup><mi>G</mi><mi>H</mi></msup><mi>c</mi></math></div>
-        </div>
-        <div class="architecture-thesis"><span>核心转换</span><strong>把“复杂传播环境”变成可计算、可求导、可执行的相位。</strong></div>
-        <footer><span>五个模块共享同一场景定义与相位编号。</span><span class="page-number">06 / 17</span></footer>
+        <figure class="architecture-figure">
+          <img src="images/ultrasound_ppt_framework.svg" width="2560" height="1440" alt="固定场景下的超声阵列相位优化完整架构图">
+          <figcaption>固定场景离线构建响应基，在线执行全场合成、损失计算、VJP 与相位更新；最终相位进入 SonicSurface 标定与下发链路。</figcaption>
+        </figure>
+        <footer><span>场景建模 → 响应基 → 相位优化 → 结果验证 → 硬件执行</span><span class="page-number">06 / 18</span></footer>
         <template class="speaker-note">
-          <p>整条路线从场景开始：几何通过 SDF 进入材料场，边界条件和阵元激励进入 Helmholtz 方程。求解器建立每个阵元的完整场响应 G，优化器用 G 快速合成声场并通过 VJP 更新相位。</p>
-          <p>得到的连续相位进入硬件侧，叠加逐阵元标定偏移并量化为 32 档，再按 SonicSurface 的通道顺序发送。这五个模块共享同一套阵元编号和场景坐标。</p>
+          <p>这张图展示完整架构。左侧把阵列、几何、材料和边界写入三维 Helmholtz 系统；中间通过边界凝聚和 cuDSS 构建响应基；右侧从目标场出发，循环执行声场合成、损失计算、VJP 和相位更新。</p>
+          <p>优化后的相位经过通道映射、逐阵元标定补偿和 32 档量化后下发到 SonicSurface。场景、求解、优化、验证与硬件使用统一的阵元编号和坐标定义。</p>
         </template>
       </section>
 
@@ -221,7 +209,7 @@
           </article>
         </div>
         <div class="bottom-thesis"><span>计算策略</span><strong>同一场景只分解一次，再复用多个声源右端项。</strong></div>
-        <footer><span>实现 / Warp 稀疏组装 · 边界凝聚 · cuDSS 混合直接求解</span><span class="page-number">07 / 17</span></footer>
+        <footer><span>实现 / Warp 稀疏组装 · 边界凝聚 · cuDSS 混合直接求解</span><span class="page-number">07 / 18</span></footer>
         <template class="speaker-note">
           <p>首先将几何转成 SDF，用平滑插值构造密度和声速场。变参数 Helmholtz 方程通过七点差分离散成 Au=b，边界包括阵元指定复声压、开放边界和刚性反射。</p>
           <p>我们对指定值与开放边界行进行等价消元，得到更小的复对称系统，交给 cuDSS 分解，再回代恢复完整边界。固定场景复用同一份分解，为全部阵元建立响应基。</p>
@@ -230,33 +218,33 @@
 
       <section class="slide comsol" data-title="COMSOL 交叉验证" data-duration="20" data-chapter="method" aria-label="第 8 页：COMSOL 交叉验证" hidden>
         <header><span class="section-label"><b>08</b> COMSOL 交叉验证</span><span class="running-title">02 / 建模与算法</span></header>
-        <h2>独立求解器复现了空间结构与优化趋势。</h2>
-        <p class="subtitle">相同几何、材料、边界与阵元相位，分别由项目求解器和 COMSOL 计算。</p>
+        <h2>三维场与统一评价面，共同交叉验证。</h2>
+        <p class="subtitle">相同几何、材料、边界与阵元相位，分别由项目求解器和 COMSOL 独立计算。</p>
         <div class="comsol-layout">
           <figure class="comsol-field">
-            <img src="assets/comsol_plate_adjoint_3d.png" width="1600" height="760" alt="平板障碍物伴随相位下 COMSOL 与项目求解器的三维声场对比">
+            <img src="images/comsol_plate_adjoint_3d.png" width="1600" height="760" alt="平板障碍物伴随相位下 COMSOL 与项目求解器的三维声场对比">
             <figcaption><b>代表性空间对比</b><span>平板障碍物 · adjoint 相位 · 三个正交切面与等值面</span></figcaption>
           </figure>
           <figure class="comsol-chart">
-            <img src="assets/comsol_contrast_scatter.png" width="1260" height="1080" alt="项目求解器与 COMSOL 的目标对比度相关图">
-            <figcaption><b>跨方法统计</b><span>平板与块体 · geometric / response / adjoint</span></figcaption>
+            <img src="images/comsol_tri306090_45_reflect_vertical_slices.png" width="2465" height="1491" alt="三十六十九十度三角形旋转四十五度并设置加 x 反射边界时的 COMSOL、项目求解器和差值正交切面">
+            <figcaption><b>反射场景正交切面</b><span>30°–60°–90° · 45° · +x 反射 · 顶部 ρ=0.652</span></figcaption>
           </figure>
         </div>
         <div class="comsol-metrics">
           <div><strong>12</strong><span>形状 × 边界正演算例</span></div>
           <div><strong>0.596–0.733</strong><span>顶部幅度空间相关</span></div>
-          <div><strong>r = 0.881</strong><span>目标对比度跨方法相关</span></div>
-          <div><strong>7.46–13.23 dB</strong><span>COMSOL 复现的目标增益</span></div>
+          <div><strong>0.497–0.576</strong><span>全体积幅度空间相关</span></div>
+          <div><strong>2.4–4.6×</strong><span>COMSOL 复现的目标声压增益</span></div>
         </div>
-        <footer><span>COMSOL Multiphysics 6.3 · 项目 61³ 网格 · 全局 hmax 4 mm / 障碍物邻域 1.5 mm</span><span class="page-number">08 / 17</span></footer>
+        <footer><span>COMSOL Multiphysics 6.3 · 项目 61³ 网格 · 全局 hmax 4 mm / 障碍物邻域 1.5 mm</span><span class="page-number">08 / 18</span></footer>
         <template class="speaker-note">
-          <p>为了验证自研求解器，我们用相同几何、材料、边界条件和阵元相位，在 COMSOL 中独立重建模型。左侧展示平板障碍物和伴随相位下的三维结果，两种求解器都在目标附近形成增强区域，并呈现相近的传播结构。</p>
-          <p>验证共包含六种形状和两种边界条件，共十二个正演算例，顶部振幅空间相关为 0.596 到 0.733。进一步在平板和块体场景比较多种相位方法，两套求解器对目标对比度排序的 Pearson 相关达到 0.881；COMSOL 也复现了 7.46 到 13.23 dB 的目标增益。这说明当前模型能够捕捉影响聚焦优化的主要物理趋势。</p>
+          <p>为了验证自研求解器，我们用相同几何、材料、边界条件和阵元相位，在 COMSOL 中独立重建模型。左侧比较完整三维场中的三个正交切面和等值面；右侧采用三十六十九十度三角形旋转四十五度并设置加 x 反射边界的场景，展示 xz、yz 切面的 COMSOL、项目结果与差值。</p>
+          <p>顶部平面位于 z 等于 100 毫米，是所有场景共同的工作与观察平面，能够使用同一规则逐点比较，并避开阵元附近的强近场。但它不是唯一证据：十二个场景的全体积空间相关为 0.497 到 0.576，顶部相关为 0.596 到 0.733；把优化相位输入 COMSOL 后，目标声压提高 2.4 到 4.6 倍。</p>
         </template>
       </section>
 
       <section class="slide basis" data-title="响应基如何构建" data-duration="25" data-chapter="method" aria-label="第 9 页：响应基如何构建" hidden>
-        <header><span class="section-label"><b>09</b> 响应基如何构建</span><span class="running-title">02 / 建模与算法</span></header>
+        <header><span class="section-label"><b>10</b> 响应基如何构建</span><span class="running-title">02 / 建模与算法</span></header>
         <h2>一次分解，构建完整响应基。</h2>
         <p class="subtitle">G = A⁻¹B 是 256 个线性方程解的紧凑写法。</p>
         <div class="basis-objects">
@@ -292,15 +280,15 @@
           <div><span>计算方式</span><strong>求解 AG = B</strong></div>
           <div><span>在线阶段</span><strong>u = G exp(iφ)</strong></div>
         </div>
-        <footer><span>完整 G：166,375 × 256；B 按批临时构造，场景不变即可复用。</span><span class="page-number">09 / 17</span></footer>
+        <footer><span>完整 G：166,375 × 256；B 按批临时构造，场景不变即可复用。</span><span class="page-number">10 / 18</span></footer>
         <template class="speaker-note">
           <p>这里的 A 负责传播，B 负责说明每个阵元把固定幅值写到哪些底面网格点，G 的每一列则是一个阵元经过完整 PDE 传播后的三维响应。B 的第 r 列是局部稀疏输入，G 的第 r 列通常是全空间稠密声场。</p>
           <p>G 等于 A 的逆乘 B 是线性求解的紧凑记号。程序先对凝聚后的 A 分解一次，再对每个 b_r 做前代和回代。当前接口按 16 列组织 RHS，256 列全部复用同一份因子。完成后保存 G，在线优化只做矩阵向量乘法。</p>
         </template>
       </section>
 
-      <section class="slide cotangent" data-title="复声场梯度 c" data-duration="15" data-chapter="method" aria-label="第 10 页：复声场梯度 c" hidden>
-        <header><span class="section-label"><b>10</b> 复声场梯度 c</span><span class="running-title">02 / 建模与算法</span></header>
+      <section class="slide cotangent" data-title="复声场梯度 c" data-duration="15" data-chapter="method" aria-label="第 11 页：复声场梯度 c" hidden>
+        <header><span class="section-label"><b>11</b> 复声场梯度 c</span><span class="running-title">02 / 建模与算法</span></header>
         <h2>先在实数域求导，再合并成复向量。</h2>
         <p class="subtitle">c 汇总 loss 对每个网格点声压实部与虚部的敏感度。</p>
         <div class="cotangent-layout">
@@ -327,15 +315,15 @@
           <div><span>逐点求导</span><strong>得到复向量 c，长度 N</strong></div>
           <div><span>数值正则</span><strong>ε 平滑零振幅邻域</strong></div>
         </div>
-        <footer><span>复数表示压缩了两组实梯度，链式法则保持不变。</span><span class="page-number">10 / 17</span></footer>
+        <footer><span>复数表示压缩了两组实梯度，链式法则保持不变。</span><span class="page-number">11 / 18</span></footer>
         <template class="speaker-note">
           <p>我们把每个 u_j 写成 x_j 加 i y_j，在普通实数域分别计算损失对 x_j 和 y_j 的偏导，再合并成 c_j。这样 dL 等于 Re(cᴴdu)，与二 N 维实数链式法则完全一致。按 Wirtinger 记号，c 等于二倍的 ∂L/∂u*，微分定义固定了因子约定。</p>
           <p>右侧给出振幅匹配的具体结果。c 由 loss 决定，可以理解为虚拟伴随声源：目标点和背景区域按照优化目标产生敏感度。零振幅邻域由极小 epsilon 平滑，解析结果再通过中心差分核对。</p>
         </template>
       </section>
 
-      <section class="slide vjp" data-title="VJP 与相位梯度" data-duration="20" data-chapter="method" aria-label="第 11 页：VJP 与相位梯度" hidden>
-        <header><span class="section-label"><b>11</b> VJP 与相位梯度</span><span class="running-title">02 / 建模与算法</span></header>
+      <section class="slide vjp" data-title="VJP 与相位梯度" data-duration="20" data-chapter="method" aria-label="第 12 页：VJP 与相位梯度" hidden>
+        <header><span class="section-label"><b>12</b> VJP 与相位梯度</span><span class="running-title">02 / 建模与算法</span></header>
         <h2>一次反传，得到全部相位梯度。</h2>
         <p class="subtitle">VJP 将全场敏感度直接投影到 256 个相位变量。</p>
         <div class="vjp-steps">
@@ -368,69 +356,76 @@
           <div><span>解析 VJP</span><strong>Gᴴc + 逐元素链式法则</strong><p>一次反向矩阵向量乘得到 256 个梯度。</p></div>
           <div><span>PDE 伴随等价式</span><strong>Aᴴλ = c，Gᴴc = Bᴴλ</strong><p>固定场景用预计算 G 完成在线反传。</p></div>
         </div>
-        <footer><span>一次 Gᴴc 汇总全部网格敏感度，输出 256 维实数梯度。</span><span class="page-number">11 / 17</span></footer>
+        <footer><span>一次 Gᴴc 汇总全部网格敏感度，输出 256 维实数梯度。</span><span class="page-number">12 / 18</span></footer>
         <template class="speaker-note">
           <p>VJP 是损失敏感度向量与声场 Jacobian 的乘法过程。先看单个阵元：e 的 iφ 次方对 φ 求导会多出 i，所以声场导数是 i G 的第 r 列乘当前相位。再代入 dL 等于 Re(cᴴdu)，就得到单个相位梯度。</p>
           <p>为了同时处理全部阵元，我们先算 z=Gᴴc。由于单阵元公式中是 cᴴG 的第 r 列，而 z_r 是 G 第 r 列的共轭转置乘 c，所以最终出现 z_r 的共轭。⊙ 表示逐元素乘法。该运算直接输出长度 256 的实数梯度，再由 Adam 更新相位。</p>
         </template>
       </section>
 
-      <section class="slide field-result" data-title="声场优化结果" data-duration="15" data-chapter="evidence" aria-label="第 12 页：声场优化结果" hidden>
-        <header><span class="section-label"><b>12</b> 声场优化结果</span><span class="running-title">03 / 数值证据</span></header>
+      <section class="slide field-result" data-title="声场优化结果" data-duration="15" data-chapter="evidence" aria-label="第 13 页：声场优化结果" hidden>
+        <header><span class="section-label"><b>13</b> 声场优化结果</span><span class="running-title">03 / 数值证据</span></header>
         <h2>物理优化把能量重新集中到目标点。</h2>
-        <p class="subtitle">绿色十字为目标位置；左为几何相位，右为解析梯度优化结果。</p>
-        <figure class="field-comparison-figure">
-          <img src="assets/field_comparison.png" width="1944" height="765" alt="同一反射边界场景下，几何相位与物理感知优化的声压切面对比">
-        </figure>
+        <p class="subtitle">二维切面给出定量结果；三维图中红球为目标，蓝色为本方法，红色为传统几何相位。</p>
+        <div class="field-evidence-layout">
+          <figure class="field-comparison-figure">
+            <img src="images/field_comparison.png" width="1944" height="765" alt="同一反射边界场景下，几何相位与物理感知优化的声压切面对比">
+            <figcaption>统一切面与色标：几何相位 / 物理优化</figcaption>
+          </figure>
+          <figure class="field-3d-figure">
+            <img src="images/field_3d_reflection_comparison.png" width="1600" height="900" alt="反射边界场景中传统几何相位红色等值面和物理优化蓝色等值面的三维对比">
+            <figcaption><span class="legend-target">● 目标点</span><span class="legend-optimized">■ 本方法</span><span class="legend-geometric">■ 传统方法</span></figcaption>
+          </figure>
+        </div>
         <div class="field-metrics">
           <div><span>目标点声压</span><strong><b id="geometric-target">571</b> → <b id="optimized-target">3,380</b> Pa</strong><small id="target-gain">5.9×</small></div>
           <div><span>目标 / 背景峰值</span><strong><b id="geometric-contrast">0.31</b> → <b id="optimized-contrast">2.81</b></strong><small id="contrast-gain">9.2×</small></div>
           <div><span>场景</span><strong>12 × 12 · 41³ · +x 反射</strong><small>归档数值实验</small></div>
         </div>
-        <footer><span>数据 / algorithm_comparison · 目标 (90, 90, 90) mm</span><span class="page-number">12 / 17</span></footer>
+        <footer><span>数据 / algorithm_comparison · 目标 (90, 90, 90) mm</span><span class="page-number">13 / 18</span></footer>
         <template class="speaker-note">
-          <p>这里比较的是同一个反射边界场景。绿色十字是目标点，左侧几何相位的能量峰值偏离目标；右侧用完整物理场和解析梯度优化后，目标位置形成清晰焦点。</p>
+          <p>这里比较的是加入一块反射面后的同一个场景。二维切面使用统一色标；三维图中红球是目标点，蓝色等值面是我们的物理优化结果，红色等值面是传统几何相位。传统方法的能量被反射改变并在空间中形成旁瓣，而本方法把主要能量重新集中到目标点附近。</p>
           <p>目标点声压从约 571 Pa 提升到 3380 Pa，目标与背景峰值之比从 0.31 提升到 2.81。两幅图使用同一切面和同一色标，因此可以直接比较能量分布。</p>
         </template>
       </section>
 
-      <section class="slide loss-slide" data-title="算法 Loss 对比" data-duration="15" data-chapter="evidence" aria-label="第 13 页：算法 Loss 对比" hidden>
-        <header><span class="section-label"><b>13</b> 算法 Loss 对比</span><span class="running-title">03 / 数值证据</span></header>
+      <section class="slide loss-slide" data-title="算法 Loss 对比" data-duration="15" data-chapter="evidence" aria-label="第 14 页：算法 Loss 对比" hidden>
+        <header><span class="section-label"><b>14</b> 算法 Loss 对比</span><span class="running-title">03 / 数值证据</span></header>
         <h2>解析梯度更快进入高质量解区域。</h2>
         <div class="loss-layout">
-          <figure class="loss-figure"><img src="assets/algorithm_loss_dashboard.png" width="2046" height="1146" alt="原始算法 Loss 对比图：九种方法的原始损失、滑动中位数和历史最优值"></figure>
+          <figure class="loss-figure"><img src="images/algorithm_loss_dashboard.png" width="2046" height="1146" alt="原始算法 Loss 对比图：九种方法的原始损失、滑动中位数和历史最优值"></figure>
           <aside class="loss-reading">
             <div><span class="step-label">坐标与图例</span><h3>越低越好</h3><p>横轴：场评估次数<br>纵轴：focal_contrast Loss</p></div>
             <div><span class="step-label">曲线含义</span><p><b>实线</b>　滑动中位数<br><b>虚线</b>　历史最优值<br><b>浅线</b>　原始 Loss</p></div>
             <div><span class="step-label">观察</span><p>Adjoint + Adam 用更少场评估进入低损失区域。</p><p class="detail">完整曲线保留搜索波动与收敛过程。</p></div>
           </aside>
         </div>
-        <footer><span>来源 / algorithm_comparison · 12 × 12 原型</span><span class="page-number">13 / 17</span></footer>
+        <footer><span>来源 / algorithm_comparison · 12 × 12 原型</span><span class="page-number">14 / 18</span></footer>
         <template class="speaker-note">
           <p>横轴是场评估次数，纵轴是 focal_contrast loss，越低越好。实线是滑动中位数，虚线是历史最优，浅线保留原始搜索波动。解析梯度方法以较少评估快速进入低损失区域。</p>
           <p>这页先讲收敛形态，后面的共同门槛页再比较达到同一质量所需的秒数和评估次数。</p>
         </template>
       </section>
 
-      <section class="slide loss-slide" data-title="优化器消融曲线" data-duration="15" data-chapter="evidence" aria-label="第 14 页：优化器消融曲线" hidden>
-        <header><span class="section-label"><b>14</b> 优化器消融曲线</span><span class="running-title">03 / 数值证据</span></header>
+      <section class="slide loss-slide" data-title="优化器消融曲线" data-duration="15" data-chapter="evidence" aria-label="第 15 页：优化器消融曲线" hidden>
+        <header><span class="section-label"><b>15</b> 优化器消融曲线</span><span class="running-title">03 / 数值证据</span></header>
         <h2>固定物理梯度，检验更新器的影响。</h2>
         <div class="loss-layout">
-          <figure class="loss-figure"><img src="assets/ablation_loss_dashboard.png" width="2046" height="1146" alt="原始优化器消融 Loss 曲线：L-BFGS-B、Adam、AdamW、Lion、非线性共轭梯度"></figure>
+          <figure class="loss-figure"><img src="images/ablation_loss_dashboard.png" width="2046" height="1146" alt="原始优化器消融 Loss 曲线：L-BFGS-B、Adam、AdamW、Lion、非线性共轭梯度"></figure>
           <aside class="loss-reading">
             <div><span class="step-label green">控制变量</span><h3>只替换更新器</h3><p>相同场景、初相位、目标函数和解析 VJP。</p></div>
             <div><span class="step-label green">比较对象</span><p>L-BFGS-B · Adam<br>AdamW · Lion<br>非线性共轭梯度</p></div>
             <div><span class="step-label green">实验结论</span><p>Adam 在早期下降速度与高质量门槛上表现最好。</p><p class="detail">实线：滑动中位数；虚线：历史最优；浅线：原始 Loss。</p></div>
           </aside>
         </div>
-        <footer><span>来源 / gradient_ablation · 横轴为场评估次数</span><span class="page-number">14 / 17</span></footer>
+        <footer><span>来源 / gradient_ablation · 横轴为场评估次数</span><span class="page-number">15 / 18</span></footer>
         <template class="speaker-note">
           <p>消融实验固定相同解析梯度，只更换五种更新器。曲线展示不同更新规则的早期下降和最终平台；下一页进一步用共同质量门槛统计首次达标时间和评估次数。</p>
         </template>
       </section>
 
-      <section class="slide experiments" data-title="共同质量数值对比" data-duration="20" data-chapter="evidence" aria-label="第 15 页：共同质量数值对比" hidden>
-        <header><span class="section-label"><b>15</b> 共同质量数值对比</span><span class="running-title">03 / 数值证据</span></header>
+      <section class="slide experiments" data-title="共同质量数值对比" data-duration="20" data-chapter="evidence" aria-label="第 16 页：共同质量数值对比" hidden>
+        <header><span class="section-label"><b>16</b> 共同质量数值对比</span><span class="running-title">03 / 数值证据</span></header>
         <h2>同一质量，比较所需代价。</h2>
         <p class="subtitle">以首次满足 L ≤ L* 的时间与场评估次数作为统一口径。</p>
         <div class="experiment-panels">
@@ -451,7 +446,7 @@
           <p><b>实验口径</b> 12 × 12，41³ 网格，+x 反射，单种子 0；相同场景、初相位与响应基。</p>
           <p>时间为在线优化阶段；左、右面板分别对应算法比较与更新器消融。</p>
         </div>
-        <footer><span>来源 / 两组 quality_summary.csv · 相同场景内按共同质量比较</span><span class="page-number">15 / 17</span></footer>
+        <footer><span>来源 / 两组 quality_summary.csv · 相同场景内按共同质量比较</span><span class="page-number">16 / 18</span></footer>
         <template class="speaker-note">
           <p>我们使用共同质量门槛，直接比较各算法第一次得到同质量解的代价。左图在门槛 −1593.498 下，Adam 约 1.46 秒、89 次评估，CMA-ES 29.30 秒，L-SHADE 41.44 秒；相对 L-SHADE 达标时间约快 28.4 倍。</p>
           <p>右图固定解析 VJP，只替换更新器，在门槛 −1860 下 Adam 用 2.69 秒、350 次评估率先达标，AdamW 接近，随后是 Lion 和非线性共轭梯度。实验支持解析梯度加 Adam 作为当前默认方案。</p>
@@ -459,15 +454,15 @@
       </section>
 
       <section class="slide hardware" data-title="SonicSurface 实物与标定" data-duration="30" data-chapter="hardware" aria-label="第 16 页：SonicSurface 实物与标定" hidden>
-        <header><span class="section-label"><b>16</b> SonicSurface 实物与标定</span><span class="running-title">04 / 实物闭环</span></header>
+        <header><span class="section-label"><b>17</b> SonicSurface 实物与标定</span><span class="running-title">04 / 实物闭环</span></header>
         <h2>优化相位已经走向真实 256 通道阵列。</h2>
         <div class="hardware-evidence">
           <figure class="hardware-photo">
-            <img src="assets/sonicsurface_hardware.jpg" width="2000" height="1125" alt="项目使用的 SonicSurface 16 乘 16 超声相控阵实物">
+            <img src="images/sonicsurface_hardware.jpg" width="2000" height="1125" alt="项目使用的 SonicSurface 16 乘 16 超声相控阵实物">
             <figcaption><b>阵列与控制硬件</b><span>16 × 16 · 256 通道 · 40 kHz</span></figcaption>
           </figure>
           <figure class="calibration-photo">
-            <img src="assets/phase_calibration.png" width="1280" height="1071" alt="AcousticField 中的逐阵元相位标定界面">
+            <img src="images/phase_calibration.png" width="1280" height="1071" alt="AcousticField 中的逐阵元相位标定界面">
             <figcaption><b>相位对齐调试</b><span>通道识别 · 相位偏移 · 阵列映射</span></figcaption>
           </figure>
         </div>
@@ -475,32 +470,28 @@
           <span>优化相位 φ</span><b>→</b><span>通道映射</span><b>→</b><span>标定偏移</span><b>→</b><span>32 档量化</span><b>→</b><span>FPGA 驱动</span>
         </div>
         <div class="hardware-citation"><strong>SonicSurface</strong><span>Morales et al., Applied Sciences, 2021 · DOI 10.3390/app11072981</span></div>
-        <footer><span>本地 Client / Service 串联优化程序、AcousticField 与 SimpleFPGA 协议。</span><span class="page-number">16 / 17</span></footer>
+        <footer><span>本地 Client / Service 串联优化程序、AcousticField 与 SimpleFPGA 协议。</span><span class="page-number">17 / 18</span></footer>
         <template class="speaker-note">
           <p>右侧是我们实际使用的 SonicSurface 阵列和相位对齐界面。SonicSurface 是 Morales 等在 2021 年提出的开放式空气超声相控阵平台，论文同时给出了硬件、驱动与目标幅度图案生成方法。</p>
-          <p>我们的优化器输出 256 路连续相位，本地服务按照阵元顺序映射通道，叠加逐阵元相位校准值，再量化为控制板支持的 32 个相位档，通过 SimpleFPGA 协议下发。当前实物和标定流程已经接入，下一步用麦克风扫描完成仿真与实测闭环。</p>
+          <p>我们的优化器输出 256 路连续相位，本地服务按照阵元顺序映射通道，叠加逐阵元相位校准值，再量化为控制板支持的 32 个相位档，通过 SimpleFPGA 协议下发。当前实物、标定流程与相位下发链路均已完成接入。</p>
         </template>
       </section>
 
-      <section class="slide closing" data-title="结论" data-duration="15" data-chapter="closing" aria-label="第 17 页：结论" hidden>
-        <img class="closing-field" src="assets/optimized_field_hero.png" width="1920" height="1080" alt="项目优化得到的反射边界场景声压切面">
+      <section class="slide closing" data-title="感谢聆听" data-duration="15" data-chapter="closing" aria-label="第 18 页：感谢聆听" hidden>
+        <img class="closing-field" src="images/optimized_field_hero.png" width="1920" height="1080" alt="项目优化得到的反射边界场景声压切面">
         <div class="closing-tint" aria-hidden="true"></div>
-        <div class="closing-copy">
-          <p class="kicker">HAPTIFIELD</p>
-          <h2>让环境进入模型，<br>让相位来自物理。</h2>
-          <p>从三维场景到 256 路硬件相位，形成一条可计算、可优化、可验证的完整链路。</p>
+        <div class="closing-copy closing-thanks">
+
+          <h2>感谢聆听</h2>
         </div>
-        <div class="closing-results">
-          <div><span>01</span><b>异质场景建模</b><p>SDF + Helmholtz</p></div>
-          <div><span>02</span><b>高效数值求解</b><p>边界凝聚 + cuDSS</p></div>
-          <div><span>03</span><b>解析相位优化</b><p>响应基 + VJP</p></div>
-          <div><span>04</span><b>实物系统连接</b><p>SonicSurface + 标定</p></div>
+        <div class="closing-complete">
+          <span>完整链路已贯通</span>
+          <strong>三维场景 · 物理求解 · 相位优化 · COMSOL 验证 · SonicSurface 实物</strong>
         </div>
-        <p class="closing-next">下一步：完成标定后的麦克风扫描，以同一场景验证焦点位置、目标声压与旁瓣。</p>
-        <footer><span>复杂环境中的可编程超声场</span><span class="page-number">17 / 17</span></footer>
+        <p class="closing-qa">Q&amp;A</p>
+        <footer><span class="page-number">18 / 18</span></footer>
         <template class="speaker-note">
-          <p>我们完成了从复杂环境三维建模、边界凝聚求解，到响应基和解析相位梯度，再到 SonicSurface 硬件接口与标定流程的贯通。</p>
-          <p>项目的核心价值是让传播环境本身参与相位设计。下一步将用标定后的麦克风扫描，把数值焦点、实际声场和最终应用效果连接起来。谢谢各位老师。</p>
+          <p>我们已经完成从复杂环境三维建模、边界凝聚求解、响应基与解析相位梯度，到 COMSOL 验证、SonicSurface 硬件控制和相位标定的完整链路。感谢各位老师聆听，欢迎提问。</p>
         </template>
       </section>
     </div>

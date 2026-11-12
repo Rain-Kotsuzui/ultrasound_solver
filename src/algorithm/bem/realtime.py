@@ -16,6 +16,10 @@ surface field corrected by the change of the incident field at each element.
 
 import time
 
+from algorithm.cuda_runtime_paths import add_cuda_dll_directories
+
+add_cuda_dll_directories()
+
 import cupy as cp
 import numpy as np
 

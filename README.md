@@ -40,13 +40,19 @@ src/
   examples/                  默认配置和可复现实验配置
 
 docs/
-  main.html                  文档总入口
+  HAND_PHASE_SURROGATE.md    当前手部 BEM surrogate 数据、网络和训练说明
+  main.html                  历史物理/数值文档入口
   *.html                     物理推导、离散化、边界凝聚、梯度和架构文档
 
-obstacle_displacement_study/ 障碍物轻移实验脚本与结果整理
-algorithm_comparison/        可上传的算法对比配置、结果与曲线
-gradient_ablation/           可上传的解析梯度更新器消融实验
-outputs/                     响应基、优化结果和可视化产物，不提交
+scripts/
+  hand_dataset/              MANO/BEM 数据生成、surrogate 训练和指标绘图脚本
+
+control/                     SonicSurface 阵列控制与实时 GUI
+configs/                     当前可复用配置
+data/                        本地输入数据
+models/                      本地模型资源，例如 MANO README/资源占位
+outputs/                     当前 MVP 数据集、训练输出和本机硬件配置，不提交
+research_archive/            论文/报告可复用的历史 baseline、ablation 和早期研究证据
 requirements.txt             Python 依赖列表
 ```
 
@@ -93,8 +99,9 @@ python src/algorithm/visualizer.py outputs/phase_oblique_reflecting_x_16x16/resu
 - [`docs/SOLVER_ARCHITECTURE.html`](docs/SOLVER_ARCHITECTURE.html)：求解器架构和模块边界。
 - [`docs/BEM_REALTIME_FOCUSING.md`](docs/BEM_REALTIME_FOCUSING.md)：刚性障碍物边界元后端、与 PDE 的对照验证和实时聚焦。
 - [`docs/SOLVER_BACKENDS_GROUP_MEETING.md`](docs/SOLVER_BACKENDS_GROUP_MEETING.md)：BEM 组会文档，介绍原理、相对 PDE 的优势、实测结果及适用范围。
-- [`algorithm_comparison/README.md`](algorithm_comparison/README.md)：已完成的 9 种算法对比、质量门槛统计和复现实验入口。
-- [`gradient_ablation/README.md`](gradient_ablation/README.md)：已完成的解析梯度更新器消融、质量门槛统计和复现实验入口。
+- [`docs/HAND_PHASE_SURROGATE.md`](docs/HAND_PHASE_SURROGATE.md)：当前手部 BEM surrogate 数据集、网络结构、训练命令和评估曲线。
+- [`research_archive/algorithm_comparison/README.md`](research_archive/algorithm_comparison/README.md)：已完成的 9 种算法对比、质量门槛统计和复现实验入口。
+- [`research_archive/gradient_ablation/README.md`](research_archive/gradient_ablation/README.md)：已完成的解析梯度更新器消融、质量门槛统计和复现实验入口。
 - [`src/hardware/README.md`](src/hardware/README.md)：Ultraino/AcousticField 标定结果与本地 S/C 硬件服务的接入方式。
 
 ## 典型工作流
@@ -108,8 +115,7 @@ python src/algorithm/visualizer.py outputs/phase_oblique_reflecting_x_16x16/resu
 ## 产物约定
 
 - `outputs/`、`.npy`、`.npz`、响应基缓存和截图属于运行产物，默认不提交。
-- `algorithm_comparison/` 是对外发布的例外，保留本次算法对比的配置、结果和曲线，可直接上传。
-- `gradient_ablation/` 同样是对外发布的例外，保留优化器消融的配置、结果和曲线；大型响应基缓存不提交。
+- `research_archive/` 保留写文章和报告需要的历史 baseline、ablation 和早期研究证据。
 - 可复现实验应提交 YAML 配置，而不是提交大型结果文件。
 - `src/README.md` 只维护代码使用方式和 config 参数定义。
 - 根目录 `README.md` 只维护项目概览、结构和文档入口。

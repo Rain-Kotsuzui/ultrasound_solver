@@ -1,6 +1,8 @@
 __pycache__/
 *.py[cod]
 .venv/
+.screenshots/
+.trae-html-share-packages/
 .cuda_cache/
 .cupy_cache/
 .warp_cache/
@@ -25,16 +27,12 @@ outputs/baseline_test_deps/
 *_basis.npy.json
 *_visualization.png
 
-# Published algorithm-comparison package and reproducible result artifacts.
-!algorithm_comparison/
-!algorithm_comparison/**/
-!algorithm_comparison/**/*.npz
-!algorithm_comparison/**/*.npy
-algorithm_comparison/**/phase_response_basis.npy
+# Published research archive packages and reproducible result artifacts.
+!research_archive/
+!research_archive/**/
+!research_archive/**/*.npz
+!research_archive/**/*.npy
+research_archive/**/phase_response_basis.npy
 
 # Published gradient-ablation results, excluding the rebuildable response basis.
-!gradient_ablation/
-!gradient_ablation/**/
-!gradient_ablation/**/*.npz
-!gradient_ablation/**/*.npy
-gradient_ablation/**/phase_response_basis.npy
+research_archive/gradient_ablation/**/phase_response_basis.npy

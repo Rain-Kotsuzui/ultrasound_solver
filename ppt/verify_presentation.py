@@ -29,12 +29,13 @@ def main():
         assert page.locator(".vision-grid article").count() == 4
         assert page.locator(".application-gallery img").count() == 3
         assert page.locator(".literature-grid img").count() == 3
-        assert page.locator(".architecture-path article").count() == 5
+        assert page.locator(".architecture-figure img").count() == 1
         assert page.locator(".comsol-layout img").count() == 2
         assert page.locator(".basis-objects article").count() == 3
         assert page.locator(".cotangent-layout article").count() == 2
         assert page.locator(".vjp-steps article").count() == 3
         assert page.locator(".field-comparison-figure img").count() == 1
+        assert page.locator(".field-3d-figure img").count() == 1
         assert page.locator(".hardware-evidence img").count() == 2
         assert page.locator(".closing-field").count() == 1
         assert page.locator("#target-gain").inner_text() == "5.9×"
@@ -86,7 +87,7 @@ def main():
                 checks.append({"viewport": [width, height], "slide": number, **result})
                 if width == 1600:
                     page.screenshot(path=str(OUTPUT / f"slide-{number:02d}.png"))
-            assert page.locator(".slide.active").get_attribute("data-title") == "结论"
+            assert page.locator(".slide.active").get_attribute("data-title") == "感谢聆听"
         page.set_viewport_size({"width": 1600, "height": 900})
         page.keyboard.press("Home")
         page.keyboard.press("ArrowLeft")
@@ -111,7 +112,7 @@ def main():
         page.wait_for_url("**/index.html#9")
         assert page.locator(".slide.active").get_attribute("data-title") == "响应基如何构建"
         page.goto((HERE / "index.html").as_uri() + "#invalid")
-        assert page.locator(".slide.active").get_attribute("data-title") == "HaptiField"
+        assert page.locator(".slide.active").get_attribute("data-title") == "项目首页"
         page.wait_for_timeout(2400)
         assert not errors, errors
         assert not [url for url in requests if url.startswith(("http:", "https:"))], requests

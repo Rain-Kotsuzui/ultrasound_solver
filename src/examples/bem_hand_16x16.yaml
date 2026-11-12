@@ -32,7 +32,7 @@ targets:
   - point: [0.08, 0.082, 0.08]
 obstacles:
   - type: mesh
-    file: ../../obstacle_displacement_study/models/hand_watertight.vtk
+    file: ../../research_archive/obstacle_displacement_study/models/hand_watertight.vtk
     center_m: [0.08, 0.082, 0.1165]
     rotation_deg: [0.0, 90.0, 90.0]
     scale: 0.6145

@@ -25,6 +25,10 @@ from pathlib import Path
 import time
 import warnings
 
+from algorithm.cuda_runtime_paths import add_cuda_dll_directories
+
+add_cuda_dll_directories()
+
 import cupy as cp
 import numpy as np
 
